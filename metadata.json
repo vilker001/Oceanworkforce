@@ -1,0 +1,9 @@
+
+{
+  "name": "Ocean Group Management Suite",
+  "description": "A comprehensive corporate management platform featuring CRM, Kanban task boards, availability calendars, and AI-powered executive reports.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

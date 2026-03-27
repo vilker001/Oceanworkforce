@@ -99,17 +99,56 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
 
   return (
     <div className="flex flex-col gap-6 h-full pb-10">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black tracking-tight">Fluxo de Trabalho Operacional</h2>
           <p className="text-text-sub text-sm">Controle de qualidade e delegação de objetivos.</p>
         </div>
         <button
-          onClick={() => isAnyManager ? setIsModalOpen(true) : alert("penas Gestores podem delegar e criar novas tarefas.")}
+          onClick={() => isAnyManager ? setIsModalOpen(true) : alert("Apenas Gestores podem delegar e criar novas tarefas.")}
           className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg transition-all ${isAnyManager ? 'bg-primary text-white shadow-primary/20 hover:scale-105' : 'bg-gray-200 text-gray-500 cursor-not-allowed opacity-60'}`}
         >
           <span className="material-symbols-outlined text-lg">{isAnyManager ? 'add_circle' : 'lock'}</span> Nova Tarefa
         </button>
+      </div>
+
+      {/* Dashboard Pessoal do Responsável */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-text-sub">Em Progresso</p>
+            <h3 className="text-2xl font-black text-primary mt-1">
+              {tasks.filter(t => t.responsible === currentUser.name && ['ToDo', 'InProgress', 'Review'].includes(t.status) && !t.isLate).length}
+            </h3>
+          </div>
+          <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <span className="material-symbols-outlined">pending_actions</span>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-text-sub">Atrasadas</p>
+            <h3 className="text-2xl font-black text-red-500 mt-1">
+              {tasks.filter(t => t.responsible === currentUser.name && t.isLate).length}
+            </h3>
+          </div>
+          <div className="size-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-500">
+            <span className="material-symbols-outlined">warning</span>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-text-sub">Concluídas</p>
+            <h3 className="text-2xl font-black text-green-500 mt-1">
+              {tasks.filter(t => t.responsible === currentUser.name && t.status === 'Done').length}
+            </h3>
+          </div>
+          <div className="size-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-500">
+            <span className="material-symbols-outlined">task_alt</span>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-4 lg:gap-6 overflow-x-auto pb-6 -mx-4 lg:-mx-8 px-4 lg:px-8 no-scrollbar h-full min-h-[500px] lg:min-h-[600px] items-start">
@@ -131,18 +170,25 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                 <div
                   key={task.id}
                   onClick={() => { setSelectedTask(task); setIsDetailOpen(true); }}
-                  className="bg-white dark:bg-zinc-900/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden"
+                  className={`bg-white dark:bg-zinc-900/80 backdrop-blur-sm p-5 rounded-2xl border ${task.isLate ? 'border-red-300 dark:border-red-900/50 shadow-red-500/10' : 'border-gray-100 dark:border-zinc-800'} shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden`}
                 >
                   <div className={`absolute top-0 left-0 w-1 h-full ${task.priority === 'CRÍTICA' ? 'bg-red-500' :
                     task.priority === 'ALTA' ? 'bg-orange-500' :
                       task.priority === 'MÉDIA' ? 'bg-blue-500' : 'bg-gray-300'
                     }`}></div>
 
-                  <div className="flex justify-between items-start mb-3">
+                  <div className="flex justify-between items-start mb-3 gap-2">
                     <span className={`text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider ${priorityColors[task.priority]}`}>
                       {task.priority}
                     </span>
-                    <span className="text-[10px] font-bold text-text-sub">#{task.id}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      {task.isLate && (
+                        <span className="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest animate-pulse border border-red-200 dark:border-red-800 whitespace-nowrap">
+                          🚨 Atrasada
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold text-text-sub">#{task.id}</span>
+                    </div>
                   </div>
 
                   <h4 className="text-sm font-black mb-1 leading-snug group-hover:text-primary transition-colors">{task.title}</h4>

@@ -61,19 +61,31 @@ export const useTasks = () => {
             if (fetchError) throw fetchError;
 
             // Transform data to match Task interface
-            const transformedTasks: Task[] = (data || []).map((task: any) => ({
-                id: task.id,
-                title: task.title,
-                project: task.project,
-                status: task.status,
-                priority: task.priority,
-                responsible: task.responsible?.name || task.responsible_name || 'Sem responsável',
-                startDate: task.start_date,
-                dueDate: task.due_date,
-                objectives: task.objectives || [],
-                completionReport: task.completion_report,
-                managerFeedback: task.manager_feedback
-            }));
+            const transformedTasks: Task[] = (data || []).map((task: any) => {
+                let isLate = false;
+                if (task.status !== 'Done') {
+                    const dueDate = new Date(task.due_date);
+                    dueDate.setHours(23, 59, 59, 999);
+                    if (dueDate < new Date()) {
+                        isLate = true;
+                    }
+                }
+
+                return {
+                    id: task.id,
+                    title: task.title,
+                    project: task.project,
+                    status: task.status,
+                    priority: task.priority,
+                    responsible: task.responsible?.name || task.responsible_name || 'Sem responsável',
+                    startDate: task.start_date,
+                    dueDate: task.due_date,
+                    objectives: task.objectives || [],
+                    completionReport: task.completion_report,
+                    managerFeedback: task.manager_feedback,
+                    isLate
+                };
+            });
 
             setTasks(transformedTasks);
             setError(null);
@@ -113,7 +125,7 @@ export const useTasks = () => {
                     start_date: taskData.startDate,
                     due_date: taskData.dueDate,
                     objectives: taskData.objectives as any
-                })
+                } as any)
                 .select()
                 .single();
 
@@ -175,7 +187,7 @@ export const useTasks = () => {
                     ...(updates.objectives && { objectives: updates.objectives }),
                     ...(updates.completionReport && { completion_report: updates.completionReport }),
                     ...(updates.managerFeedback && { manager_feedback: updates.managerFeedback })
-                })
+                } as any)
                 .eq('id', id);
 
             if (updateError) throw updateError;

@@ -15,7 +15,7 @@ interface TeamPerformanceProps {
 export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, team }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const isManager = currentUser.role === 'GP Sênior' || currentUser.role === 'Gestor Financeiro';
+  const isManager = ['Gestor de Projectos', 'Gestor Criativo', 'Gestor Financeiro', 'Gestor de Parceiros e Clientes', 'Gestor de Trading e Negociação'].includes(currentUser.role);
 
   const filteredTeam = useMemo(() => {
     return team.filter(m =>

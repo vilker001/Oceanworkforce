@@ -36,7 +36,7 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
   const categories = useMemo(() => {
     switch (formData.type) {
       case 'income':
-        return ['Pagamento de Cliente', 'Investimento de Sócio', 'Outro'];
+        return ['Pagamento de Cliente', 'Estúdio Fotográfico', 'Cobertura de Evento', 'Prestação de Serviços', 'Withdraw de Trading', 'Investimento de Sócio', 'Outro'];
       case 'investment':
         return ['Software', 'Material de Escritório', 'Hardware', 'Marketing', 'Trading'];
       case 'expense':
@@ -168,15 +168,19 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
           <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 flex-1">
             <h4 className="font-bold mb-4">Resumo por Categoria</h4>
             <div className="space-y-3">
-              {['Pagamento de Cliente', 'Trading', 'Hardware', 'Fixos'].map((cat) => {
-                const val = transactions.filter(t => t.cat === cat).reduce((acc, t) => acc + t.val, 0);
-                return (
+              {Array.from(new Set(transactions.map(t => t.cat)))
+                .map(cat => ({ cat, val: transactions.filter(t => t.cat === cat).reduce((acc, t) => acc + t.val, 0) }))
+                .sort((a, b) => b.val - a.val)
+                .slice(0, 5)
+                .map(({ cat, val }) => (
                   <div key={cat} className="flex justify-between items-center text-xs">
                     <span className="text-text-sub font-medium">{cat}</span>
                     <span className="font-bold">MT {val.toLocaleString()}</span>
                   </div>
-                );
-              })}
+                ))}
+              {transactions.length === 0 && (
+                <div className="text-xs text-text-sub text-center italic py-2">Nenhuma transação registrada</div>
+              )}
             </div>
           </div>
         </div>

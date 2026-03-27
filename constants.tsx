@@ -89,29 +89,13 @@ export const TEAM_MEMBERS = [
 ];
 
 export const Logo: React.FC<{ className?: string; variant?: 'white' | 'black' }> = ({ className = "h-8", variant = 'black' }) => {
-  const textColor = variant === 'white' ? '#FFFFFF' : '#000000';
-
   return (
     <div className={`flex items-center select-none ${className}`}>
-      <svg viewBox="0 0 320 80" className="h-full w-auto" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="oceanWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style={{ stopColor: '#00adef', stopOpacity: 1 }} />
-            <stop offset="100%" style={{ stopColor: '#0056b3', stopOpacity: 1 }} />
-          </linearGradient>
-        </defs>
-        {/* Texto OCEAN */}
-        <text x="5" y="55" style={{ font: '800 58px Manrope, sans-serif', letterSpacing: '-3px' }} fill={textColor}>
-          OCEAN
-        </text>
-        {/* Texto GROUP */}
-        <text x="145" y="76" style={{ font: '700 18px Manrope, sans-serif', letterSpacing: '9px' }} fill={textColor}>
-          GROUP
-        </text>
-        {/* Ondas estilizadas conforme o logo fornecido */}
-        <path d="M5 52 Q 40 35, 90 52 T 180 52" stroke="url(#oceanWaveGrad)" strokeWidth="7" fill="none" strokeLinecap="round" />
-        <path d="M10 62 Q 45 45, 95 62 T 185 62" stroke="#00adef" strokeWidth="4" fill="none" opacity="0.5" strokeLinecap="round" />
-      </svg>
+      <img 
+        src="/ocean-logo.png" 
+        alt="Ocean Group" 
+        className={`h-full w-auto object-contain transition-all duration-300 scale-[1.35] origin-left ${variant === 'white' ? 'brightness-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]' : ''}`} 
+      />
     </div>
   );
 };

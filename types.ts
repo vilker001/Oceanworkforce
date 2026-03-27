@@ -16,6 +16,8 @@ export type UserRole =
   | 'Gestor de Parceiros e Clientes'
   | 'Gestor de Trading e Negociação'
   | 'Designer'
+  | 'Fotógrafo Sênior'
+  | 'Fotógrafo Júnior'
   | 'Promoter de Venda'
   | 'Videomaker'
   | 'Colaborador';
@@ -43,6 +45,7 @@ export interface Task {
   objectives: TaskObjective[];
   completionReport?: string;
   managerFeedback?: string;
+  isLate?: boolean;
 }
 
 export type ClientStatus =

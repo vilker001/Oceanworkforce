@@ -42,6 +42,7 @@ const App: React.FC = () => {
 
   const userRef = React.useRef<User | null>(null);
   const isMounted = React.useRef(true);
+  const isFetchingProfile = React.useRef(false);
 
   // --- CORE AUTH LOGIC ---
 
@@ -51,10 +52,11 @@ const App: React.FC = () => {
 
     // Safety Timeouts
     const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('App: Loading took too long, forcing recovery...');
-        setLoading(false);
-      }
+      // Only force recovery if stuck for 20s
+      setLoading(prev => {
+        if (prev) console.warn('App: Loading took too long, forcing recovery...');
+        return false;
+      });
     }, 20000); // 20 seconds max load time
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -109,6 +111,11 @@ const App: React.FC = () => {
   };
 
   const loadProfile = async (userId: string) => {
+    if (isFetchingProfile.current) {
+      console.log('App: Profile already being fetched, skipping duplicate call.');
+      return;
+    }
+    isFetchingProfile.current = true;
     console.log('App: Loading profile for', userId);
     setLoading(true);
 
@@ -162,6 +169,7 @@ const App: React.FC = () => {
       setIsAuthenticated(true);
       setNeedsOnboarding(true);
     } finally {
+      isFetchingProfile.current = false;
       if (isMounted.current) {
         setLoading(false);
       }

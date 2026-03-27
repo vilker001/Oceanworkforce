@@ -11,6 +11,8 @@ const ROLES: { id: UserRole; title: string, desc: string, icon: string }[] = [
     { id: 'Gestor de Parceiros e Clientes', title: 'Gestor de Parceiros e Clientes', desc: 'Relacionamento e expansão de mercado.', icon: 'handshake' },
     { id: 'Gestor de Trading e Negociação', title: 'Gestor de Trading e Negociação', desc: 'Operações financeiras e deals estratégicos.', icon: 'currency_exchange' },
     { id: 'Designer', title: 'Designer', desc: 'Produção visual e criativa.', icon: 'brush' },
+    { id: 'Fotógrafo Sênior', title: 'Fotógrafo Sênior', desc: 'Direção e captação fotográfica avançada.', icon: 'camera_alt' },
+    { id: 'Fotógrafo Júnior', title: 'Fotógrafo Júnior', desc: 'Apoio e captação fotográfica.', icon: 'photo_camera' },
     { id: 'Promoter de Venda', title: 'Promoter de Venda', desc: 'Prospecção e ativação comercial.', icon: 'campaign' },
     { id: 'Videomaker', title: 'Videomaker', desc: 'Captação e edição de vídeo.', icon: 'videocam' },
 ];

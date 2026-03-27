@@ -26,8 +26,18 @@ const eventIcons: Record<EventType | 'Deadline', string> = {
 };
 
 export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, userRole, onDeleteEvent }) => {
-  // Calendar is now open to all authenticated users
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1)); // Default to Jan 2026
+  // Configurable bounds
+  const MIN_DATE = new Date(2026, 2, 1); // Março 2026
+  const MAX_DATE = new Date(2030, 11, 1); // Dezembro 2030
+
+  const [currentDate, setCurrentDate] = useState(() => {
+    const today = new Date();
+    // Start at current month if within bounds, else clamp
+    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    if (currentMonth < MIN_DATE) return MIN_DATE;
+    if (currentMonth > MAX_DATE) return MAX_DATE;
+    return currentMonth;
+  });
   const [filters, setFilters] = useState({ tasks: true, events: true });
   const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -116,7 +126,10 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
   };
 
   const changeMonth = (offset: number) => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
+    if (newDate >= MIN_DATE && newDate <= MAX_DATE) {
+      setCurrentDate(newDate);
+    }
   };
 
   return (
@@ -127,10 +140,18 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
           <h2 className="text-3xl font-black tracking-tight flex items-center gap-4">
             {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
             <div className="flex gap-1">
-              <button onClick={() => changeMonth(-1)} className="size-8 rounded-lg bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+              <button 
+                onClick={() => changeMonth(-1)} 
+                disabled={currentDate <= MIN_DATE}
+                className="size-8 rounded-lg bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              >
                 <span className="material-symbols-outlined text-sm">chevron_left</span>
               </button>
-              <button onClick={() => changeMonth(1)} className="size-8 rounded-lg bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+              <button 
+                onClick={() => changeMonth(1)} 
+                disabled={currentDate >= MAX_DATE}
+                className="size-8 rounded-lg bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              >
                 <span className="material-symbols-outlined text-sm">chevron_right</span>
               </button>
             </div>

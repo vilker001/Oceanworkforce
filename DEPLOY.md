@@ -39,7 +39,6 @@ git push -u origin main
 4. Configure as variáveis de ambiente:
    - `VITE_SUPABASE_URL` = sua URL do Supabase
    - `VITE_SUPABASE_ANON_KEY` = sua chave pública
-   - `GEMINI_API_KEY` = sua chave do Gemini (para IA Assistant)
 
 5. Clique em **"Deploy"**
 6. Aguarde ~2 minutos

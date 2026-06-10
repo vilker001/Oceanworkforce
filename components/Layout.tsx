@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { View, User, Task, Transaction } from '../types';
 import { Logo } from '../constants';
-import { LiveAssistant } from './LiveAssistant';
 import { ProfileSettings } from './ProfileSettings';
 import { NotificationCenter } from './ui/NotificationCenter';
 
@@ -28,7 +27,6 @@ export const Layout: React.FC<LayoutProps> = ({
   onUpdateAvatar
 }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
 
@@ -147,12 +145,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
           <div className="flex items-center gap-2 lg:gap-4">
             <NotificationCenter user={user} />
-            <button
-              onClick={() => setIsAssistantOpen(true)}
-              className="bg-primary text-white px-3 lg:px-4 py-2 rounded-full text-[10px] lg:text-xs font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-            >
-              <span className="material-symbols-outlined text-sm filled">temp_preferences_custom</span> <span className="hidden sm:inline">IA Assistant</span>
-            </button>
           </div>
         </header>
 
@@ -162,13 +154,6 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
 
-        {isAssistantOpen && (
-          <LiveAssistant
-            onClose={() => setIsAssistantOpen(false)}
-            onAddTask={onAddTask}
-            onAddFinancial={onAddFinancial}
-          />
-        )}
 
         {isProfileSettingsOpen && (
           <ProfileSettings

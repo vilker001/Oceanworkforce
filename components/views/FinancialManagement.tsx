@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Transaction } from '../../types';
+import { useFinancialSettings } from '../../src/hooks/useFinancialSettings';
 
 interface FinancialManagementProps {
   transactions: Transaction[];
@@ -22,6 +23,11 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
     );
   }
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
+  const [newBalanceInput, setNewBalanceInput] = useState('');
+  const [savingBalance, setSavingBalance] = useState(false);
+
+  const { settings: financialSettings, updateInitialBalance } = useFinancialSettings();
 
   // Form State
   const [formData, setFormData] = useState({
@@ -58,9 +64,11 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
     const expenses = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.val, 0);
     const investments = transactions.filter(t => t.type === 'investment').reduce((acc, t) => acc + t.val, 0);
     const margin = income > 0 ? ((income - expenses) / income) * 100 : 0;
+    const initialBalance = financialSettings?.initial_balance ?? 0;
+    const currentBalance = initialBalance + income - expenses - investments;
 
-    return { income, expenses, investments, margin };
-  }, [transactions]);
+    return { income, expenses, investments, margin, initialBalance, currentBalance };
+  }, [transactions, financialSettings]);
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +96,21 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
     }
   };
 
+  const handleSaveBalance = async () => {
+    const val = parseFloat(newBalanceInput);
+    if (isNaN(val)) return alert('Por favor, insira um valor válido.');
+    setSavingBalance(true);
+    try {
+      await updateInitialBalance(val);
+      setIsBalanceModalOpen(false);
+      setNewBalanceInput('');
+    } catch {
+      alert('Erro ao guardar saldo. Tente novamente.');
+    } finally {
+      setSavingBalance(false);
+    }
+  };
+
   const chartData = [
     { name: 'Semana 1', entrada: totals.income * 0.2, saida: (totals.expenses + totals.investments) * 0.3 },
     { name: 'Semana 2', entrada: totals.income * 0.3, saida: (totals.expenses + totals.investments) * 0.2 },
@@ -103,6 +126,12 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
           <p className="text-text-sub">Controle refinado de entradas, despesas operacionais e alocação de investimentos.</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => { setNewBalanceInput(totals.initialBalance.toString()); setIsBalanceModalOpen(true); }}
+            className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">account_balance_wallet</span> Definir Saldo
+          </button>
           <button className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors">
             <span className="material-symbols-outlined text-lg">download</span> Exportar
           </button>
@@ -115,6 +144,33 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
         </div>
       </div>
 
+      {/* === SALDO ATUAL — Destaque Principal === */}
+      <div
+        onClick={() => { setNewBalanceInput(totals.initialBalance.toString()); setIsBalanceModalOpen(true); }}
+        className={`relative overflow-hidden rounded-3xl p-8 flex items-center justify-between cursor-pointer group transition-all hover:scale-[1.01] shadow-xl ${
+          totals.currentBalance >= 0
+            ? 'bg-gradient-to-r from-green-600 to-emerald-500 shadow-green-300/30'
+            : 'bg-gradient-to-r from-red-600 to-rose-500 shadow-red-300/30'
+        }`}
+      >
+        <div className="absolute -top-10 -right-10 size-52 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <p className="text-white/70 text-[10px] font-black uppercase tracking-[0.2em] mb-2">💰 Saldo Actual em Caixa</p>
+          <h2 className="text-5xl font-black text-white tracking-tight">
+            MT {totals.currentBalance.toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h2>
+          <p className="text-white/60 text-xs mt-2 font-medium">
+            Saldo inicial: MT {totals.initialBalance.toLocaleString()} · Clique para ajustar
+          </p>
+        </div>
+        <div className="relative z-10 text-right hidden sm:block">
+          <div className="bg-white/15 rounded-2xl p-4 group-hover:bg-white/20 transition-all">
+            <span className="material-symbols-outlined text-white text-5xl">account_balance_wallet</span>
+          </div>
+        </div>
+      </div>
+
+      {/* === KPI Cards === */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
           { label: 'Receita Total', value: `MT ${totals.income.toLocaleString()}`, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/10' },
@@ -358,6 +414,49 @@ export const FinancialManagement: React.FC<FinancialManagementProps> = ({ transa
               Confirmar Lançamento
             </button>
           </form>
+        </div>
+      )}
+
+      {/* === MODAL: Definir Saldo Inicial === */}
+      {isBalanceModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsBalanceModalOpen(false)} />
+          <div className="relative bg-white dark:bg-zinc-900 w-full max-w-sm rounded-3xl shadow-2xl border border-gray-100 dark:border-zinc-800 p-8 flex flex-col gap-6 overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-green-500 to-emerald-400" />
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-black">Definir Saldo</h3>
+                <p className="text-xs text-text-sub mt-1">Defina o saldo inicial em caixa. As transações ajustam automaticamente.</p>
+              </div>
+              <button onClick={() => setIsBalanceModalOpen(false)} className="material-symbols-outlined text-text-sub hover:text-red-500 transition-colors">close</button>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-black text-text-sub uppercase tracking-widest">Saldo Inicial (MT)</label>
+              <input
+                autoFocus
+                type="number"
+                step="0.01"
+                className="bg-gray-50 dark:bg-zinc-800 border-2 border-transparent focus:border-green-500 focus:ring-4 focus:ring-green-500/10 rounded-2xl p-4 text-3xl font-black outline-none transition-all placeholder:text-gray-300"
+                placeholder="0.00"
+                value={newBalanceInput}
+                onChange={e => setNewBalanceInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveBalance()}
+              />
+            </div>
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4 text-xs text-green-700 dark:text-green-400 font-medium">
+              <strong>Saldo Final Previsto:</strong> MT {(
+                (parseFloat(newBalanceInput) || 0) + totals.income - totals.expenses - totals.investments
+              ).toLocaleString('pt-MZ', { minimumFractionDigits: 2 })}
+            </div>
+            <button
+              onClick={handleSaveBalance}
+              disabled={savingBalance}
+              className="w-full py-4 rounded-2xl font-black text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {savingBalance ? <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <span className="material-symbols-outlined text-sm">save</span>}
+              Guardar Saldo
+            </button>
+          </div>
         </div>
       )}
     </div>

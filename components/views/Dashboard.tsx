@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line } from 'recharts';
-import { getProjectInsights } from '../../services/geminiService';
 import { useTasks } from '../../src/hooks/useTasks';
 import { useTransactions } from '../../src/hooks/useTransactions';
 import { useClients } from '../../src/hooks/useClients';
@@ -31,6 +30,57 @@ const financeData = [
   { name: 'Mar', receita: 480000, despesa: 340000 },
   { name: 'Abr', receita: 610000, despesa: 380000 },
 ];
+
+const getLocalInsights = (
+  tab: 'productivity' | 'finance' | 'pipeline',
+  stats: {
+    productivity: any;
+    finance: any;
+    pipeline: any;
+  }
+) => {
+  if (tab === 'productivity') {
+    const { efficiency, completed, total } = stats.productivity;
+    if (total === 0) {
+      return "Nenhuma tarefa registrada ainda. Crie tarefas no Kanban para começar a acompanhar a produtividade da equipe.";
+    }
+    if (efficiency >= 80) {
+      return `Excelente produtividade! Com ${completed} de ${total} tarefas concluídas (${efficiency}% de eficiência), a equipe está operando em alta performance. Continue focando na automação de processos repetitivos.`;
+    } else if (efficiency >= 50) {
+      return `Bom ritmo de trabalho. A eficiência está em ${efficiency}%. Considere reavaliar prazos e delegar tarefas com impedimentos para acelerar a conclusão das restantes.`;
+    } else {
+      return `Atenção: A taxa de conclusão está em ${efficiency}%. Sugere-se uma reunião rápida de alinhamento com a equipe para identificar gargalos operacionais e repriorizar os cartões críticos no Kanban.`;
+    }
+  } else if (tab === 'finance') {
+    const { income, expense, margin } = stats.finance;
+    if (income === 0 && expense === 0) {
+      return "Nenhuma transação financeira registrada. Adicione receitas ou despesas na aba Financeiro para gerar insights.";
+    }
+    const balance = income - expense;
+    if (margin >= 30) {
+      return `Saúde financeira robusta! Margem líquida de ${margin}% (MT ${(balance/1000).toFixed(1)}k líquido). Recomendamos reservar uma percentagem deste excedente para investimento em marketing e atração de novos leads.`;
+    } else if (margin >= 10) {
+      return `Desempenho estável. Margem líquida positiva em ${margin}%. Considere auditar despesas administrativas menores no próximo mês para impulsionar a lucratividade operacional.`;
+    } else if (balance > 0) {
+      return `Margem apertada (${margin}%). Embora superavitário, o custo operacional consome quase toda a receita. Evite novas contratações ou custos fixos não essenciais no curto prazo.`;
+    } else {
+      return `Aviso de Risco: Fluxo de caixa negativo (défice de MT ${Math.abs(balance/1000).toFixed(1)}k). Urge revisar despesas fixas imediatas e acelerar a cobrança de faturas ou propostas comerciais em aberto.`;
+    }
+  } else {
+    const { total, conversionRate } = stats.pipeline;
+    const rate = parseFloat(conversionRate);
+    if (total === 0) {
+      return "Pipeline comercial vazio. Registre novos prospectos/leads para habilitar as projeções de conversão e benchmarking de funil.";
+    }
+    if (rate >= 25) {
+      return `Taxa de conversão excepcional de ${conversionRate}%! O funil está altamente otimizado. Concentre esforços em fechar as propostas enviadas para expandir a carteira de clientes ativos ainda esta semana.`;
+    } else if (rate >= 10) {
+      return `Desempenho comercial satisfatório. Conversão de ${conversionRate}%. Focar no acompanhamento (follow-up) dos leads nas etapas de 'Contacto' e 'Proposta Enviada' para aumentar a taxa de fecho.`;
+    } else {
+      return `Oportunidade de Melhoria: A conversão atual está abaixo da média (${conversionRate}%). Recomendamos revisar a proposta de valor nos primeiros contactos ou oferecer consultorias gratuitas de diagnóstico.`;
+    }
+  }
+};
 
 export const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'productivity' | 'finance' | 'pipeline'>('productivity');
@@ -113,18 +163,24 @@ export const Dashboard: React.FC = () => {
   }, [clients]);
 
 
-  const fetchInsights = async () => {
+  const fetchInsights = () => {
     setLoadingAi(true);
-    const context = activeTab === 'productivity' ? 'produtividade da equipe e tarefas' :
-      activeTab === 'finance' ? 'saúde financeira e margens' : 'pipeline de vendas e conversão';
-    const insight = await getProjectInsights({ tab: activeTab, context });
-    setAiInsight(insight);
-    setLoadingAi(false);
+    const timer = setTimeout(() => {
+      const insight = getLocalInsights(activeTab, {
+        productivity: productivityStats,
+        finance: financeStats,
+        pipeline: pipelineStats
+      });
+      setAiInsight(insight);
+      setLoadingAi(false);
+    }, 400);
+    return () => clearTimeout(timer);
   };
 
   useEffect(() => {
-    fetchInsights();
-  }, [activeTab]);
+    const cleanup = fetchInsights();
+    return cleanup;
+  }, [activeTab, productivityStats, financeStats, pipelineStats]);
 
   const renderKPIs = () => {
     switch (activeTab) {

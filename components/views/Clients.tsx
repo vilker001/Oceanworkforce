@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { Client, ClientStatus, User } from '../../types';
-import { generateClientAvatar } from '../../services/geminiService';
 
 const availableServices = [
   'Gestão de mídia',
@@ -43,7 +42,6 @@ export const Clients: React.FC<{
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<ClientStatus | 'Todos'>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -177,15 +175,6 @@ export const Clients: React.FC<{
       location: 'Maputo Cidade',
       provenance: 'Outro'
     });
-  };
-
-  const handleGenerateBrand = async (client: Client) => {
-    setGeneratingFor(client.id);
-    const avatar = await generateClientAvatar(client.name);
-    if (avatar) {
-      alert("Marca gerada via IA e associada ao perfil do cliente!");
-    }
-    setGeneratingFor(null);
   };
 
   return (

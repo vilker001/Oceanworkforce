@@ -42,8 +42,6 @@ https://seu-projeto-id.supabase.co
 2. Substitua os valores:
 
 ```env
-GEMINI_API_KEY=PLACEHOLDER_API_KEY
-
 # Supabase Configuration
 VITE_SUPABASE_URL=https://seu-projeto-id.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-chave-anon-aqui

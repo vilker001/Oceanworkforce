@@ -53,6 +53,9 @@ export const useClients = () => {
                 email: client.email,
                 phone: client.phone,
                 companyPhone: client.company_phone,
+                companyName: client.company_name,
+                businessValue: client.business_value ? parseFloat(client.business_value) : undefined,
+                nextFollowUpDate: client.next_follow_up_date,
                 internalContact: client.internal_contact,
                 internalContactPhone: client.internal_contact_phone,
                 internalContactRole: client.internal_contact_role,
@@ -77,6 +80,19 @@ export const useClients = () => {
         }
     };
 
+    const addBusinessDays = (date: Date, days: number): Date => {
+        let result = new Date(date);
+        let added = 0;
+        while (added < days) {
+            result.setDate(result.getDate() + 1);
+            const day = result.getDay();
+            if (day !== 0 && day !== 6) { // 0 = Sunday, 6 = Saturday
+                added++;
+            }
+        }
+        return result;
+    };
+
     const createClient = async (client: Omit<Client, 'id'>) => {
         try {
             let responsible_id = null;
@@ -91,6 +107,8 @@ export const useClients = () => {
                 responsible_id = users?.id;
             }
 
+            const nextFollowUp = client.nextFollowUpDate || addBusinessDays(new Date(), 3).toISOString().split('T')[0];
+
             const { data, error: insertError } = await supabase
                 .from('clients')
                 .insert({
@@ -98,6 +116,9 @@ export const useClients = () => {
                     email: client.email,
                     phone: client.phone,
                     company_phone: client.companyPhone,
+                    company_name: client.companyName,
+                    business_value: client.businessValue,
+                    next_follow_up_date: nextFollowUp,
                     internal_contact: client.internalContact,
                     internal_contact_phone: client.internalContactPhone,
                     internal_contact_role: client.internalContactRole,
@@ -141,6 +162,15 @@ export const useClients = () => {
                 }
             }
 
+            // Fetch current client status/value for conversion trigger
+            const { data: currentClient } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            const isConverting = updates.status === 'Convertido' && currentClient && currentClient.status !== 'Convertido';
+
             const { error: updateError } = await supabase
                 .from('clients')
                 .update({
@@ -148,6 +178,9 @@ export const useClients = () => {
                     ...(updates.email && { email: updates.email }),
                     ...(updates.phone !== undefined && { phone: updates.phone }),
                     ...(updates.companyPhone !== undefined && { company_phone: updates.companyPhone }),
+                    ...(updates.companyName !== undefined && { company_name: updates.companyName }),
+                    ...(updates.businessValue !== undefined && { business_value: updates.businessValue }),
+                    ...(updates.nextFollowUpDate !== undefined && { next_follow_up_date: updates.nextFollowUpDate }),
                     ...(updates.internalContact !== undefined && { internal_contact: updates.internalContact }),
                     ...(updates.internalContactPhone !== undefined && { internal_contact_phone: updates.internalContactPhone }),
                     ...(updates.internalContactRole !== undefined && { internal_contact_role: updates.internalContactRole }),
@@ -163,6 +196,39 @@ export const useClients = () => {
                 .eq('id', id);
 
             if (updateError) throw updateError;
+
+            // Trigger conversion actions
+            if (isConverting && currentClient) {
+                const value = updates.businessValue !== undefined ? updates.businessValue : (currentClient.business_value ? parseFloat(currentClient.business_value) : 0);
+                
+                if (value > 0) {
+                    // 1. Insert into transactions
+                    await supabase.from('transactions').insert({
+                        description: `Conversão de Lead - ${currentClient.name}`,
+                        date: new Date().toISOString().split('T')[0],
+                        category: 'Venda CRM',
+                        value: value,
+                        type: 'income',
+                        status: 'Recebido'
+                    });
+                }
+
+                // 2. Notify all managers
+                const { data: managers } = await supabase
+                    .from('users')
+                    .select('id')
+                    .in('role', ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading']);
+                
+                if (managers && managers.length > 0) {
+                    const notifications = managers.map(m => ({
+                        user_id: m.id,
+                        type: 'lead_converted',
+                        title: `Lead Convertido: ${currentClient.name}`,
+                        description: `O lead foi convertido com sucesso e gerou uma receita de MT ${value.toLocaleString('pt-MZ')}.`
+                    }));
+                    await supabase.from('notifications').insert(notifications as any);
+                }
+            }
 
             await fetchClients();
         } catch (err: any) {

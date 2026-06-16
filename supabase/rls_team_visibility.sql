@@ -48,6 +48,8 @@ DROP POLICY IF EXISTS "Users can read all users" ON public.users;
 DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
 DROP POLICY IF EXISTS "Managers can view all users" ON public.users;
 DROP POLICY IF EXISTS "Users can view own or managers view all" ON public.users;
+-- Remover a nova política também (caso exista de execução anterior)
+DROP POLICY IF EXISTS "Visibilidade de utilizadores" ON public.users;
 
 
 -- =====================================================

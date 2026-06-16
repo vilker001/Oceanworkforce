@@ -83,7 +83,12 @@ export const useTasks = () => {
                     objectives: task.objectives || [],
                     completionReport: task.completion_report,
                     managerFeedback: task.manager_feedback,
-                    isLate
+                    isLate,
+                    relevance: task.relevance || 3,
+                    delegated_by: task.delegated_by,
+                    delegated_by_name: task.delegated_by_name,
+                    urgency: task.urgency || 'Média',
+                    completed_at: task.completed_at
                 };
             });
 
@@ -124,7 +129,10 @@ export const useTasks = () => {
                     responsible_id: responsibleId,
                     start_date: taskData.startDate,
                     due_date: taskData.dueDate,
-                    objectives: taskData.objectives as any
+                    objectives: taskData.objectives as any,
+                    relevance: taskData.relevance || 3,
+                    urgency: taskData.urgency || 'Média',
+                    delegated_by: user.id
                 } as any)
                 .select()
                 .single();
@@ -174,6 +182,16 @@ export const useTasks = () => {
                 responsible_id = users?.id || null;
             }
 
+            // Fetch current task to see if status is changing to Done
+            const { data: currentTask } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            const isCompleting = updates.status === 'Done' && currentTask && currentTask.status !== 'Done';
+            const completed_at = isCompleting ? new Date().toISOString() : undefined;
+
             const { error: updateError } = await supabase
                 .from('tasks')
                 .update({
@@ -186,11 +204,60 @@ export const useTasks = () => {
                     ...(updates.dueDate && { due_date: updates.dueDate }),
                     ...(updates.objectives && { objectives: updates.objectives }),
                     ...(updates.completionReport && { completion_report: updates.completionReport }),
-                    ...(updates.managerFeedback && { manager_feedback: updates.managerFeedback })
+                    ...(updates.managerFeedback && { manager_feedback: updates.managerFeedback }),
+                    ...(completed_at && { completed_at })
                 } as any)
                 .eq('id', id);
 
             if (updateError) throw updateError;
+
+            // Handle XP awards and Notifications when completed
+            if (isCompleting && currentTask) {
+                const targetUserId = currentTask.responsible_id;
+                
+                if (targetUserId) {
+                    // 1. Award base XP (+100 XP)
+                    await supabase.from('xp_history').insert({
+                        user_id: targetUserId,
+                        xp_amount: 100,
+                        reason: `Tarefa concluída: ${currentTask.title}`
+                    });
+
+                    // 2. Check and award early completion bonus (+relevance * 10 XP)
+                    if (currentTask.due_date) {
+                        const dueDate = new Date(currentTask.due_date);
+                        const completedAt = new Date();
+                        const timeDiff = dueDate.getTime() - completedAt.getTime();
+                        const hoursBefore = timeDiff / (1000 * 60 * 60);
+
+                        if (hoursBefore >= 24) {
+                          const bonusAmount = (currentTask.relevance || 3) * 10;
+                          await supabase.from('xp_history').insert({
+                              user_id: targetUserId,
+                              xp_amount: bonusAmount,
+                              reason: `Bónus de Antecedência (+24h): Conclusão de tarefa: ${currentTask.title}`
+                          });
+                        }
+                    }
+                }
+
+                // 3. Notify the delegator in real-time
+                if (currentTask.delegated_by && currentTask.delegated_by !== currentTask.responsible_id) {
+                    const { data: worker } = await supabase
+                        .from('users')
+                        .select('name')
+                        .eq('id', currentTask.responsible_id)
+                        .single();
+
+                    await supabase.from('notifications').insert({
+                        user_id: currentTask.delegated_by,
+                        task_id: id,
+                        type: 'task_completed',
+                        title: `Tarefa Concluída: ${currentTask.title}`,
+                        description: `O colaborador ${worker?.name || 'responsável'} concluiu a tarefa designada.`
+                    } as any);
+                }
+            }
 
             // Immediately refresh tasks to update UI
             await fetchTasks();

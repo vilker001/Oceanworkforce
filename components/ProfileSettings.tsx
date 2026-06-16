@@ -4,26 +4,28 @@ import { supabase } from '../src/lib/supabase';
 interface ProfileSettingsProps {
     user: { name: string; role: string; avatar: string };
     onClose: () => void;
-    onUpdate: (newAvatar: string) => void;
+    onUpdate: (newAvatar: string, newName: string) => void;
 }
 
 export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ user, onClose, onUpdate }) => {
     const [selectedAvatar, setSelectedAvatar] = useState(user.avatar);
+    const [name, setName] = useState(user.name);
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
         if (!file.type.startsWith('image/')) {
             alert('Por favor, selecione apenas arquivos de imagem.');
             return;
         }
 
-        // Validate file size (max 2MB)
         if (file.size > 2 * 1024 * 1024) {
             alert('A imagem deve ter no máximo 2MB.');
             return;
@@ -34,12 +36,10 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ user, onClose,
             const { data: { user: authUser } } = await supabase.auth.getUser();
             if (!authUser) throw new Error('No authenticated user');
 
-            // Create unique filename
             const fileExt = file.name.split('.').pop();
             const fileName = `${authUser.id}-${Date.now()}.${fileExt}`;
             const filePath = `avatars/${fileName}`;
 
-            // Upload to Supabase Storage
             const { error: uploadError } = await supabase.storage
                 .from('user-uploads')
                 .upload(filePath, file, {
@@ -49,40 +49,65 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ user, onClose,
 
             if (uploadError) throw uploadError;
 
-            // Get public URL
             const { data: { publicUrl } } = supabase.storage
                 .from('user-uploads')
                 .getPublicUrl(filePath);
 
             setSelectedAvatar(publicUrl);
             alert('Foto carregada com sucesso!');
-        } catch (error: any) {
-            console.error('Error uploading file:', error);
-            alert(error.message || 'Erro ao fazer upload da foto. Tente novamente.');
+        } catch (err: any) {
+            console.error('Error uploading file:', err);
+            alert(err.message || 'Erro ao fazer upload da foto. Tente novamente.');
         } finally {
             setUploading(false);
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+
+        if (password) {
+            if (password.length < 6) {
+                setError('A password deve ter pelo menos 6 caracteres.');
+                return;
+            }
+            if (password !== confirmPassword) {
+                setError('As passwords não coincidem.');
+                return;
+            }
+        }
+
         setSaving(true);
         try {
             const { data: { user: authUser } } = await supabase.auth.getUser();
-
             if (!authUser) throw new Error('No authenticated user');
 
-            const { error } = await supabase
+            // 1. Update Name and Avatar in public.users
+            const { error: dbError } = await supabase
                 .from('users')
-                .update({ avatar: selectedAvatar } as any)
+                .update({ 
+                    name: name.trim(), 
+                    avatar: selectedAvatar 
+                } as any)
                 .eq('id', authUser.id);
 
-            if (error) throw error;
+            if (dbError) throw dbError;
 
-            onUpdate(selectedAvatar);
+            // 2. Update password in Supabase Auth if provided
+            if (password) {
+                const { error: authError } = await supabase.auth.updateUser({
+                    password: password
+                });
+                if (authError) throw authError;
+            }
+
+            alert('Perfil atualizado com sucesso!');
+            onUpdate(selectedAvatar, name.trim());
             onClose();
-        } catch (error) {
-            console.error('Error updating avatar:', error);
-            alert('Erro ao atualizar foto. Tente novamente.');
+        } catch (err: any) {
+            console.error('Error updating profile:', err);
+            setError(err.message || 'Erro ao atualizar o perfil. Tente novamente.');
         } finally {
             setSaving(false);
         }
@@ -96,77 +121,103 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ user, onClose,
                 <div className="flex justify-between items-start mb-6">
                     <div>
                         <h2 className="text-2xl font-black">Configurações de Perfil</h2>
-                        <p className="text-sm text-text-sub mt-1">Personalize sua foto de perfil</p>
+                        <p className="text-sm text-text-sub mt-1">Personalize suas informações</p>
                     </div>
                     <button onClick={onClose} className="text-text-sub hover:text-red-500 transition-colors">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
-                <div className="mb-6 p-4 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
-                    <p className="text-xs font-bold text-text-sub uppercase mb-2">Informações</p>
-                    <p className="text-sm font-black">{user.name}</p>
-                    <p className="text-xs text-primary font-bold uppercase">{user.role}</p>
-                </div>
+                <form onSubmit={handleSave} className="flex flex-col gap-5">
+                    {/* Role Read-Only Info */}
+                    <div className="p-4 bg-gray-50 dark:bg-zinc-800/50 rounded-xl flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] font-bold text-text-sub uppercase">Cargo Operacional</p>
+                            <p className="text-xs text-primary font-black uppercase mt-0.5">{user.role}</p>
+                        </div>
+                        <span className="material-symbols-outlined text-zinc-400">lock</span>
+                    </div>
 
-                {/* Current Avatar Preview */}
-                <div className="mb-6">
-                    <label className="text-sm font-bold text-text-sub uppercase mb-3 block">
-                        Foto Atual
-                    </label>
+                    {/* Username Input */}
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-text-sub ml-1">Nome de Utilizador</label>
+                        <input
+                            type="text"
+                            required
+                            className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Current Avatar Preview & Upload */}
                     <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-zinc-800/50 rounded-xl">
-                        <img src={selectedAvatar} alt="Avatar atual" className="w-20 h-20 rounded-xl object-cover" />
+                        <img src={selectedAvatar} alt="Avatar" className="w-16 h-16 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700" />
                         <div className="flex-1">
-                            <p className="text-xs text-text-sub">Sua foto de perfil atual</p>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileUpload}
+                                className="hidden"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                                className="bg-primary/10 hover:bg-primary/20 text-primary text-xs font-black px-4 py-2.5 rounded-xl transition-all"
+                            >
+                                {uploading ? 'Carregando...' : 'Alterar Foto'}
+                            </button>
                         </div>
                     </div>
-                </div>
 
-                {/* Upload Custom Photo */}
-                <div className="mb-6">
-                    <label className="text-sm font-bold text-text-sub uppercase mb-3 block">
-                        Fazer Upload de Foto
-                    </label>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                    />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-xl hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span className="material-symbols-outlined text-4xl text-primary">
-                            {uploading ? 'hourglass_empty' : 'cloud_upload'}
-                        </span>
-                        <p className="text-sm font-bold">
-                            {uploading ? 'Fazendo upload...' : 'Clique para escolher uma foto'}
-                        </p>
-                        <p className="text-xs text-text-sub">JPG, PNG ou GIF (máx. 2MB)</p>
-                    </button>
-                </div>
+                    {/* Change Password Inputs */}
+                    <div className="border-t border-gray-100 dark:border-zinc-800 pt-4 flex flex-col gap-4">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-text-sub ml-1">Alterar Password (Opcional)</p>
+                        
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-text-sub ml-1">Nova Password</label>
+                          <input
+                              type="password"
+                              className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                              placeholder="Nova password (mín. 6 caracteres)"
+                              value={password}
+                              onChange={e => setPassword(e.target.value)}
+                          />
+                        </div>
 
-                {/* Presets removed as per user request */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-text-sub ml-1">Confirmar Nova Password</label>
+                          <input
+                              type="password"
+                              className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                              placeholder="Confirme a nova password"
+                              value={confirmPassword}
+                              onChange={e => setConfirmPassword(e.target.value)}
+                          />
+                        </div>
+                    </div>
 
+                    {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
 
-                <div className="flex gap-3">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-3 border-2 border-gray-200 dark:border-zinc-700 rounded-xl font-bold text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving || uploading || selectedAvatar === user.avatar}
-                        className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    >
-                        {saving ? 'Salvando...' : 'Salvar Alterações'}
-                    </button>
-                </div>
+                    <div className="flex gap-3 mt-4">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 py-3 bg-gray-50 hover:bg-gray-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-xl font-bold text-sm text-text-sub transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={saving || uploading}
+                            className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                        >
+                            {saving ? 'Guardando...' : 'Salvar Alterações'}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );

@@ -7,25 +7,34 @@ export enum View {
   CLIENTS = 'CLIENTS',
   KANBAN = 'KANBAN',
   FINANCE = 'FINANCE',
-  TEAM = 'TEAM'
+  TEAM = 'TEAM',
+  SETTINGS = 'SETTINGS',
+  PROJECTS = 'PROJECTS',
+  TRADING = 'TRADING',
+  PHOTO_SESSIONS = 'PHOTO_SESSIONS',
+  RANKING = 'RANKING',
+  USER_MANAGEMENT = 'USER_MANAGEMENT',
 }
 
 export type UserRole =
-  | 'Gestor de Projectos'
-  | 'Gestor Criativo'
-  | 'Gestor de Parceiros e Clientes'
-  | 'Gestor de Trading e Negociação'
-  | 'Designer'
-  | 'Fotógrafo Sênior'
-  | 'Fotógrafo Júnior'
+  | 'Gestor de Projetos'
+  | 'Gestor Técnico'
+  | 'Gestor de Trading'
+  | 'Fotógrafo'
   | 'Promoter de Venda'
-  | 'Videomaker'
   | 'Colaborador';
 
 export interface User {
+  id?: string;
   name: string;
   role: UserRole;
   avatar: string;
+  email?: string;
+  employeeId?: string;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+  must_change_password?: boolean;
 }
 
 export interface TaskObjective {
@@ -40,12 +49,18 @@ export interface Task {
   status: 'Backlog' | 'ToDo' | 'InProgress' | 'Review' | 'Done';
   priority: 'BAIXA' | 'MÉDIA' | 'ALTA' | 'CRÍTICA';
   responsible: string;
+  responsible_id?: string;
   startDate: string;
   dueDate: string;
   objectives: TaskObjective[];
   completionReport?: string;
   managerFeedback?: string;
   isLate?: boolean;
+  relevance: number; // 1 to 5
+  delegated_by?: string;
+  delegated_by_name?: string;
+  urgency?: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+  completed_at?: string;
 }
 
 export type ClientStatus =
@@ -63,6 +78,8 @@ export interface Client {
   email: string;
   phone?: string;
   companyPhone?: string;
+  companyName?: string;
+  businessValue?: number;
   internalContact?: string;
   internalContactPhone?: string;
   internalContactRole?: string;
@@ -70,14 +87,27 @@ export interface Client {
   clientResponsiblePhone?: string;
   status: ClientStatus;
   responsible: string;
+  responsible_id?: string;
   services: string[];
-  location: 'Maputo Cidade' | 'Maputo Província';
-  provenance: 'Redes Sociais' | 'Google' | 'Andando pela cidade' | 'Recomendação' | 'Outro';
+  location: 'Maputo Cidade' | 'Maputo Província' | 'Outro';
+  provenance: 'Redes Sociais' | 'Google' | 'Recomendação' | 'Evento' | 'Outro';
   lastActivity: string;
   initials: string;
+  nextFollowUpDate?: string;
 }
 
-export type EventType = 'Reunião' | 'Feriado' | 'Folga' | 'Geral';
+export interface FollowUp {
+  id: string;
+  client_id: string;
+  notes: string;
+  current_stage: string;
+  advances_funnel: boolean;
+  next_follow_up_date: string;
+  created_by?: string;
+  created_at: string;
+}
+
+export type EventType = 'Reunião' | 'Feriado' | 'Folga' | 'Geral' | 'Etapa de Projeto' | 'Sessão de Foto' | 'Tarefa';
 
 export interface CalendarEvent {
   id: string;
@@ -100,6 +130,9 @@ export interface TeamMember {
   role: string;
   email: string;
   phone: string;
+  employeeId?: string;
+  birthDate?: string;
+  gender?: string;
   avatar: string;
   level: number;
   xp: number;
@@ -110,7 +143,7 @@ export interface TeamMember {
     missed: number;
     objectivesMet: number;
     totalObjectives: number;
-    kpis: { name: string; score: number }[];
+    kpis: { name: string; score: number; target?: number }[];
     clients: string[];
   };
 }
@@ -123,4 +156,139 @@ export interface Transaction {
   val: number;
   type: 'income' | 'expense' | 'investment';
   status: 'Pago' | 'Pendente' | 'Recebido';
+}
+
+// ========================
+// PROJECTS
+// ========================
+export interface ProjectObjective {
+  text: string;
+  completed: boolean;
+}
+
+export interface ProjectStage {
+  id: string;
+  project_id: string;
+  name: string;
+  description?: string;
+  objectives: ProjectObjective[];
+  start_date: string;
+  due_date: string;
+  status: 'A Fazer' | 'Em Progresso' | 'Concluido';
+  relevance: number;
+  completed_at?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'interno' | 'externo';
+  client_id?: string;
+  client_name?: string;
+  status: 'Ativo' | 'Concluido';
+  completion_report?: any;
+  completed_at?: string;
+  created_at: string;
+  stages?: ProjectStage[];
+}
+
+// ========================
+// PHOTO SESSIONS
+// ========================
+export interface ServiceCatalogItem {
+  id: string;
+  catalog_type: 'BMS Studio' | 'Ocean Group';
+  name: string;
+  description?: string;
+  price_mt: number;
+}
+
+export interface PhotoSession {
+  id: string;
+  service_type: string;
+  location_type: 'estúdio' | 'exterior';
+  date: string;
+  time: string;
+  duration_estimated: string;
+  client_name: string;
+  client_phone: string;
+  price_mt: number;
+  notes?: string;
+  status: 'Agendada' | 'Executada';
+  photographer_id?: string;
+  photographer_name?: string;
+  created_at: string;
+}
+
+// ========================
+// TRADING
+// ========================
+export interface TradingTrade {
+  id: string;
+  asset: string;
+  lot: number;
+  stop_loss_usd: number;
+  take_profit_usd: number;
+  open_date: string;
+  close_date?: string;
+  pre_trade_notes?: string;
+  result?: 'positivo' | 'negativo';
+  realized_usd?: number;
+  observation?: string;
+  classification?: 'dentro do plano' | 'fora do plano' | 'violação de regras';
+  exchange_rate: number;
+  created_by?: string;
+  created_at: string;
+}
+
+// ========================
+// GAMIFICATION
+// ========================
+export interface XpHistoryEntry {
+  id: string;
+  user_id: string;
+  xp_amount: number;
+  reason: string;
+  created_at: string;
+}
+
+export interface TeamGoal {
+  id: string;
+  month: string; // 'YYYY-MM'
+  target_xp: number;
+  current_xp: number;
+  achieved: boolean;
+}
+
+export interface MonthlyTitle {
+  id: string;
+  month: string;
+  title_type: string;
+  user_id: string;
+  user_name?: string;
+  xp_awarded: number;
+}
+
+// ========================
+// SETTINGS
+// ========================
+export interface SystemSettings {
+  id: string;
+  exchange_rate: number;
+}
+
+export interface FixedExpense {
+  id: string;
+  name: string;
+  value_mt: number;
+}
+
+export interface UserKpi {
+  id: string;
+  user_id: string;
+  kpi_name: string;
+  target_score: number;
+  actual_score: number;
+  last_updated: string;
 }

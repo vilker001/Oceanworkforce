@@ -8,10 +8,17 @@ import { Dashboard } from './components/views/Dashboard';
 import { Clients } from './components/views/Clients';
 import { Kanban } from './components/views/Kanban';
 import { Calendar } from './components/views/Calendar';
-import { KpiSetup } from './components/views/KpiSetup';
+import { KpiDashboard } from './components/views/KpiDashboard';
 import { FinancialManagement } from './components/views/FinancialManagement';
 import { TeamPerformance } from './components/views/TeamPerformance';
 import { OnboardingWizard } from './components/views/OnboardingWizard';
+import { ChangePassword } from './components/views/ChangePassword';
+import { Projects } from './components/views/Projects';
+import { PhotoSessions } from './components/views/PhotoSessions';
+import { Trading } from './components/views/Trading';
+import { Ranking } from './components/views/Ranking';
+import { UserManagement } from './components/views/UserManagement';
+import { Settings } from './components/views/Settings';
 import { DEFAULT_AVATAR } from './constants';
 import { supabase } from './src/lib/supabase';
 import { useTasks } from './src/hooks/useTasks';
@@ -20,8 +27,19 @@ import { useEvents } from './src/hooks/useEvents';
 import { useTransactions } from './src/hooks/useTransactions';
 import { useTeam } from './src/hooks/useTeam';
 import { notificationService, NotificationService } from './src/services/notificationService';
-import { ToastProvider } from './components/ui/Toast';
+import { ToastProvider, useToast } from './components/ui/Toast';
 import { GlobalNotificationListener } from './components/GlobalNotificationListener';
+
+const GlobalAlertOverride = () => {
+  const { showToast } = useToast();
+  useEffect(() => {
+    window.alert = (msg: string) => {
+      const type = msg.toLowerCase().includes('erro') || msg.toLowerCase().includes('falha') ? 'error' : 'info';
+      showToast(type, msg, 5000);
+    };
+  }, [showToast]);
+  return null;
+};
 
 const App: React.FC = () => {
   // Auth State
@@ -80,6 +98,18 @@ const App: React.FC = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Refetch all hooks when user authenticates
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      console.log('App: User authenticated, refetching all data hooks...');
+      tasksHook.refetch();
+      clientsHook.refetch();
+      eventsHook.refetch();
+      transactionsHook.refetch();
+      teamHook.refetch();
+    }
+  }, [isAuthenticated]);
 
   const resetState = () => {
     notificationService.stop();
@@ -143,10 +173,19 @@ const App: React.FC = () => {
       if (profile) {
         console.log('App: Profile found');
         const p = profile as any;
+        const rawRole = (p.role || 'Colaborador') as string;
+        let normalizedRole = rawRole as UserRole;
+        if (rawRole.toLowerCase().includes('projeto') || rawRole.toLowerCase().includes('projecto')) {
+          normalizedRole = 'Gestor de Projetos';
+        }
+
         const userData: User = {
+          id: p.id,
           name: p.name || '',
-          role: (p.role as UserRole) || 'Colaborador',
-          avatar: p.avatar || DEFAULT_AVATAR
+          role: normalizedRole,
+          avatar: p.avatar || DEFAULT_AVATAR,
+          email: p.email || '',
+          must_change_password: p.must_change_password ?? false
         };
         setUser(userData);
         userRef.current = userData;
@@ -193,7 +232,7 @@ const App: React.FC = () => {
     await checkAuthStatus();
   };
 
-  const handleFinishOnboarding = async (data: { role: UserRole; avatar: string; kpis: string[]; name: string }) => {
+  const handleFinishOnboarding = async (data: { role: UserRole; avatar: string; kpis: string[]; name: string; phone?: string; birthDate?: string; gender?: string; employeeId?: string }) => {
     console.log('App: Finishing Onboarding...', data);
     setLoading(true);
 
@@ -227,7 +266,11 @@ const App: React.FC = () => {
           email: authUser.email!,
           name: data.name,
           role: data.role,
-          avatar: avatarToUse
+          avatar: avatarToUse,
+          phone: data.phone,
+          birth_date: data.birthDate,
+          gender: data.gender,
+          employee_id: data.employeeId
         } as any);
 
       if (insertError) {
@@ -293,9 +336,9 @@ const App: React.FC = () => {
     resetState();
   };
 
-  const handleUpdateAvatar = (newAvatar: string) => {
+  const handleUpdateAvatar = (newAvatar: string, newName: string) => {
     if (user) {
-      setUser({ ...user, avatar: newAvatar });
+      setUser({ ...user, avatar: newAvatar, name: newName });
     }
   };
 
@@ -343,6 +386,11 @@ const App: React.FC = () => {
     return <Login onLogin={handleLoginSuccess} />;
   }
 
+  // 2.5 Force Password Change if must_change_password is true
+  if (user && user.must_change_password) {
+    return <ChangePassword userId={user.id || ''} onPasswordChanged={checkAuthStatus} />;
+  }
+
   // 3. Authenticated but Needs Onboarding -> Wizard
   // Also catches "Profile Not Found" case safely
   if (needsOnboarding || !user) {
@@ -353,7 +401,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case View.DASHBOARD:
-        return <Dashboard />;
+        return <Dashboard currentUser={user} />;
       case View.CLIENTS:
         return <Clients
           user={user}
@@ -362,6 +410,7 @@ const App: React.FC = () => {
           onAddClient={async (c) => { await clientsHook.createClient(c); }}
           onUpdateClient={async (id, u) => { await clientsHook.updateClient(id, u); }}
           onDeleteClient={async (id) => { await clientsHook.deleteClient(id); }}
+          error={clientsHook.error}
         />;
       case View.KANBAN:
         return <Kanban
@@ -388,7 +437,7 @@ const App: React.FC = () => {
           onDeleteEvent={async (id) => { await eventsHook.deleteEvent(id); }}
         />;
       case View.KPI_SETUP:
-        return <KpiSetup onFinish={() => setCurrentView(View.DASHBOARD)} />;
+        return <KpiDashboard currentUser={user} />;
       case View.FINANCE:
         return <FinancialManagement
           transactions={transactionsHook.transactions}
@@ -398,7 +447,19 @@ const App: React.FC = () => {
           userRole={user.role}
         />;
       case View.TEAM:
-        return <TeamPerformance currentUser={user} team={teamHook.team} />;
+        return <TeamPerformance currentUser={user} team={teamHook.team} onRefetch={teamHook.refetch} error={teamHook.error} />;
+      case View.PROJECTS:
+        return <Projects currentUser={user} />;
+      case View.PHOTO_SESSIONS:
+        return <PhotoSessions currentUser={user} />;
+      case View.TRADING:
+        return <Trading />;
+      case View.RANKING:
+        return <Ranking currentUser={user} />;
+      case View.USER_MANAGEMENT:
+        return <UserManagement />;
+      case View.SETTINGS:
+        return <Settings currentUser={user} />;
       default:
         return <Dashboard />;
     }
@@ -407,6 +468,7 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <ToastProvider>
+        <GlobalAlertOverride />
         <GlobalNotificationListener />
         <Layout
           currentView={currentView}

@@ -13,7 +13,7 @@ interface LayoutProps {
   children: React.ReactNode;
   user: User;
   onLogout: () => void;
-  onUpdateAvatar: (newAvatar: string) => void;
+  onUpdateAvatar: (newAvatar: string, newName: string) => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -35,33 +35,46 @@ export const Layout: React.FC<LayoutProps> = ({
     document.documentElement.classList.toggle('dark');
   };
 
-  const isProjectManager = user.role === 'Gestor de Projectos';
+  const isProjectManager = user.role === 'Gestor de Projetos';
   const isAnyManager = [
-    'Gestor de Projectos',
-    'Gestor Criativo',
-    'Gestor de Parceiros e Clientes',
-    'Gestor de Trading e Negociação'
+    'Gestor de Projetos',
+    'Gestor Técnico',
+    'Gestor de Trading'
   ].includes(user.role);
+  const isPhotographer = user.role === 'Fotógrafo';
 
   const navItems = [
     { id: View.DASHBOARD, label: 'Painel', icon: 'dashboard' },
     { id: View.CLIENTS, label: 'Pipeline', icon: 'hub' },
+    { id: View.PROJECTS, label: 'Projetos', icon: 'folder' },
     { id: View.KANBAN, label: 'Tarefas', icon: 'task' },
     { id: View.CALENDAR, label: 'Calendário', icon: 'calendar_today' },
+    { id: View.KPI_SETUP, label: 'Meus KPIs', icon: 'bar_chart' },
+    ...((isProjectManager || user.role === 'Gestor Técnico' || isPhotographer) ? [
+      { id: View.PHOTO_SESSIONS, label: 'Sessões BMS', icon: 'photo_camera' }
+    ] : []),
     ...(isAnyManager ? [
+      { id: View.TRADING, label: 'Trading', icon: 'candlestick_chart' },
       { id: View.TEAM, label: 'Equipe', icon: 'groups' }
     ] : []),
+    { id: View.RANKING, label: 'Ranking', icon: 'emoji_events' },
     ...(isProjectManager ? [
-      { id: View.FINANCE, label: 'Financeiro', icon: 'payments' }
+      { id: View.FINANCE, label: 'Financeiro', icon: 'payments' },
+      { id: View.USER_MANAGEMENT, label: 'Utilizadores', icon: 'manage_accounts' }
     ] : []),
-  ]; return (
+    ...(isAnyManager ? [
+      { id: View.SETTINGS, label: 'Definições', icon: 'settings' }
+    ] : []),
+  ];
+
+  return (
     <div className="flex h-screen w-full bg-background-light dark:bg-background-dark text-text-main dark:text-gray-100 transition-colors duration-300">
       {/* Sidebar - Desktop & Tablet */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:static`}>
         <div className="p-6">
           <div className="flex items-center justify-between mb-10 px-2">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setView(View.DASHBOARD); setIsMobileMenuOpen(false); }}>
-              <Logo className="h-10" variant={isDarkMode ? 'white' : 'black'} />
+              <Logo className="h-14" variant={isDarkMode ? 'white' : 'black'} />
             </div>
             <button className="lg:hidden text-text-sub" onClick={() => setIsMobileMenuOpen(false)}>
               <span className="material-symbols-outlined">close</span>

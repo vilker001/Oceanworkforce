@@ -1,28 +1,44 @@
-
 import React, { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { User, TeamMember } from '../../types';
-
-// Team data is now passed via props from App.tsx
+import { User, TeamMember, UserRole } from '../../types';
+import { DEFAULT_AVATAR } from '../../constants';
+import { supabase } from '../../src/lib/supabase';
 
 const COLORS = ['#078836', '#0056b3', '#cf4444'];
 
 interface TeamPerformanceProps {
   currentUser: User;
   team: TeamMember[];
+  onRefetch?: () => void;
+  error?: string | null;
 }
 
-export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, team }) => {
+export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, team, onRefetch, error }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modals
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
-  const MANAGER_ROLES = [
-    'Gestor de Projectos',
-    'Gestor Criativo',
-    'Gestor Financeiro',
-    'Gestor de Parceiros e Clientes',
-    'Gestor de Trading e Negociação'
-  ];
-  const isManager = MANAGER_ROLES.includes(currentUser.role);
+  // Add Form State
+  const [addName, setAddName] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const [addRole, setAddRole] = useState<UserRole>('Colaborador');
+  const [addPassword, setAddPassword] = useState('');
+  const [addAvatar, setAddAvatar] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState('');
+
+  // Edit Form State
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('Colaborador');
+  const [editAvatar, setEditAvatar] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const isCEO = currentUser.role === 'Gestor de Projetos';
 
   const filteredTeam = useMemo(() => {
     return team.filter(m =>
@@ -31,6 +47,79 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
     );
   }, [team, searchTerm]);
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddLoading(true);
+    setAddError('');
+
+    try {
+      const { data: newUserId, error } = await supabase.rpc('create_new_user', {
+        p_email: addEmail.trim(),
+        p_password: addPassword,
+        p_name: addName.trim(),
+        p_role: addRole,
+        p_avatar: addAvatar.trim() || DEFAULT_AVATAR
+      });
+
+      if (error) throw error;
+
+      alert('Colaborador criado com sucesso! O utilizador será forçado a alterar a password no primeiro login.');
+      setIsAddModalOpen(false);
+      
+      // Reset form
+      setAddName('');
+      setAddEmail('');
+      setAddRole('Colaborador');
+      setAddPassword('');
+      setAddAvatar('');
+
+      onRefetch?.();
+
+    } catch (err: any) {
+      console.error('Error creating user:', err);
+      setAddError(err.message || 'Erro ao criar utilizador. Verifique os dados.');
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const handleOpenEdit = (member: TeamMember) => {
+    setSelectedMember(member);
+    setEditName(member.name);
+    setEditEmail(member.email);
+    setEditRole(member.role as UserRole);
+    setEditAvatar(member.avatar || DEFAULT_AVATAR);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMember) return;
+    setEditLoading(true);
+    setEditError('');
+
+    try {
+      const { error } = await supabase.rpc('update_user_admin', {
+        p_user_id: selectedMember.id,
+        p_email: editEmail.trim(),
+        p_name: editName.trim(),
+        p_role: editRole,
+        p_avatar: editAvatar.trim()
+      });
+
+      if (error) throw error;
+
+      alert('Colaborador atualizado com sucesso!');
+      setIsEditModalOpen(false);
+      onRefetch?.();
+
+    } catch (err: any) {
+      console.error('Error updating user:', err);
+      setEditError(err.message || 'Erro ao atualizar utilizador.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -38,6 +127,8 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
         <div>
           <h2 className="text-3xl font-black tracking-tight">Diretório da Equipe</h2>
           <p className="text-text-sub">Gestão de talentos, performance e reconhecimento.</p>
+          <div className="mt-2 bg-yellow-100 text-yellow-800 p-2 text-xs font-bold rounded">DEBUG: team.length = {team.length}</div>
+          {error && <div className="mt-2 bg-red-100 text-red-600 p-2 text-xs font-bold rounded">ERRO NA BASE DE DADOS: {error}</div>}
         </div>
 
         <div className="flex items-center gap-4 w-full md:w-auto">
@@ -51,8 +142,11 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          {isManager && (
-            <button className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-all whitespace-nowrap">
+          {isCEO && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-all whitespace-nowrap"
+            >
               <span className="material-symbols-outlined text-lg">person_add</span> Adicionar
             </button>
           )}
@@ -61,18 +155,31 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredTeam.map((member) => {
-          const objPercentage = Math.round((member.metrics.objectivesMet / member.metrics.totalObjectives) * 100);
+          const objPercentage = member.metrics.totalObjectives > 0 
+            ? Math.round((member.metrics.objectivesMet / member.metrics.totalObjectives) * 100) 
+            : 0;
+            
           const taskDistribution = [
             { name: 'Cumpridas', value: member.metrics.completed },
             { name: 'Pendentes', value: member.metrics.pending },
             { name: 'Perdidas', value: member.metrics.missed },
           ];
 
-          // Calculate XP progress (simple logic for demo: 1000 XP per level)
+          // Calculate XP progress (simple logic: 1000 XP per level)
           const xpProgress = (member.xp % 1000) / 10;
 
           return (
-            <div key={member.id} className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all group overflow-hidden flex flex-col">
+            <div key={member.id} className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all group overflow-hidden flex flex-col relative">
+              {isCEO && (
+                <button
+                  onClick={() => handleOpenEdit(member)}
+                  className="absolute top-4 left-4 size-8 bg-zinc-100 hover:bg-primary hover:text-white dark:bg-zinc-800 dark:hover:bg-primary rounded-xl flex items-center justify-center transition-colors z-20"
+                  title="Editar Perfil"
+                >
+                  <span className="material-symbols-outlined text-sm">edit</span>
+                </button>
+              )}
+
               {/* Header do Card com Nível */}
               <div className="p-6 pb-4 flex items-start justify-between relative">
                 <div className="absolute top-0 right-0 p-4">
@@ -82,10 +189,10 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 pl-8">
                   <div className="relative">
-                    <img src={member.avatar} className="size-16 rounded-2xl object-cover border-2 border-primary/10 shadow-sm" alt="" />
-                    <div className="absolute -bottom-1 -right-1 size-5 bg-green-500 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm" title="Online"></div>
+                    <img src={member.avatar || DEFAULT_AVATAR} className="size-16 rounded-2xl object-cover border-2 border-primary/10 shadow-sm" alt="" />
+                    <div className="absolute -bottom-1 -right-1 size-5 bg-green-500 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm" title="Ativo"></div>
                   </div>
                   <div>
                     <h3 className="font-black text-lg leading-tight">{member.name}</h3>
@@ -118,15 +225,43 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
                 ))}
               </div>
 
-              {/* Informações de Contacto */}
-              <div className="px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/30 flex flex-col gap-2 border-y border-gray-50 dark:border-zinc-800">
-                <div className="flex items-center gap-2 text-xs font-medium text-text-sub">
-                  <span className="material-symbols-outlined text-sm">mail</span>
-                  <span className="truncate">{member.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-medium text-text-sub">
-                  <span className="material-symbols-outlined text-sm">call</span>
-                  <span>{member.phone}</span>
+              {/* Informações Profissionais e de RH */}
+              <div className="px-6 py-4 bg-gray-50/50 dark:bg-zinc-800/30 flex flex-col gap-3 border-y border-gray-50 dark:border-zinc-800">
+                {member.employeeId && (
+                  <div className="flex items-center justify-between text-xs font-bold text-text-main">
+                    <span className="text-[10px] uppercase text-text-sub">ID:</span>
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded uppercase tracking-widest">{member.employeeId}</span>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase text-text-sub tracking-widest">Contacto</span>
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <span className="material-symbols-outlined text-[14px] text-primary">call</span>
+                      <span className="truncate">{member.phone}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase text-text-sub tracking-widest">Email</span>
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <span className="material-symbols-outlined text-[14px] text-primary">mail</span>
+                      <span className="truncate">{member.email || 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase text-text-sub tracking-widest">Nascimento</span>
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <span className="material-symbols-outlined text-[14px] text-primary">cake</span>
+                      <span>{member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase text-text-sub tracking-widest">Género</span>
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <span className="material-symbols-outlined text-[14px] text-primary">badge</span>
+                      <span>{member.gender || 'N/A'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -182,11 +317,15 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
                     <p className="text-[9px] font-black uppercase text-text-sub tracking-widest">Alocação de Projetos</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {member.metrics.clients.map(client => (
-                      <span key={client} className="px-2 py-1 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-[9px] font-bold text-text-main dark:text-gray-300 shadow-sm">
-                        {client}
-                      </span>
-                    ))}
+                    {member.metrics.clients && member.metrics.clients.length > 0 ? (
+                      member.metrics.clients.map(client => (
+                        <span key={client} className="px-2 py-1 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-[9px] font-bold text-text-main dark:text-gray-300 shadow-sm">
+                          {client}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[9px] text-text-sub italic">Sem clientes alocados</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -201,7 +340,178 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
           </div>
         )}
       </div>
+
+      {/* MODAL ADICIONAR UTILIZADOR */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-gray-100 dark:border-zinc-800 p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <h3 className="text-2xl font-black mb-6">Adicionar Colaborador</h3>
+            <form onSubmit={handleCreateUser} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nome Completo"
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={addName}
+                  onChange={e => setAddName(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="email@oceangroup.com"
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={addEmail}
+                  onChange={e => setAddEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Cargo</label>
+                <select
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={addRole}
+                  onChange={e => setAddRole(e.target.value as UserRole)}
+                >
+                  <option value="Gestor de Projetos">Gestor de Projetos</option>
+                  <option value="Gestor Técnico">Gestor Técnico</option>
+                  <option value="Gestor de Trading">Gestor de Trading</option>
+                  <option value="Fotógrafo">Fotógrafo</option>
+                  <option value="Promoter de Venda">Promoter de Venda (SDR)</option>
+                  <option value="Colaborador">Colaborador</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Password Inicial</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={addPassword}
+                  onChange={e => setAddPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">URL do Avatar (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={addAvatar}
+                  onChange={e => setAddAvatar(e.target.value)}
+                />
+              </div>
+
+              {addError && <p className="text-red-500 text-xs font-bold text-center">{addError}</p>}
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="flex-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 py-3 rounded-xl font-bold text-sm text-text-sub transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={addLoading}
+                  className="flex-1 bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center"
+                >
+                  {addLoading ? <div className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Criar Conta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR UTILIZADOR */}
+      {isEditModalOpen && selectedMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] border border-gray-100 dark:border-zinc-800 p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <h3 className="text-2xl font-black mb-6">Editar Colaborador</h3>
+            <form onSubmit={handleUpdateUser} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nome Completo"
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="email@oceangroup.com"
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={editEmail}
+                  onChange={e => setEditEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Cargo</label>
+                <select
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={editRole}
+                  onChange={e => setEditRole(e.target.value as UserRole)}
+                >
+                  <option value="Gestor de Projetos">Gestor de Projetos</option>
+                  <option value="Gestor Técnico">Gestor Técnico</option>
+                  <option value="Gestor de Trading">Gestor de Trading</option>
+                  <option value="Fotógrafo">Fotógrafo</option>
+                  <option value="Promoter de Venda">Promoter de Venda (SDR)</option>
+                  <option value="Colaborador">Colaborador</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-text-sub ml-1">URL do Avatar</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                  value={editAvatar}
+                  onChange={e => setEditAvatar(e.target.value)}
+                />
+              </div>
+
+              {editError && <p className="text-red-500 text-xs font-bold text-center">{editError}</p>}
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 py-3 rounded-xl font-bold text-sm text-text-sub transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="flex-1 bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center"
+                >
+                  {editLoading ? <div className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Guardar Alterações'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

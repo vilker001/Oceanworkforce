@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Task } from '../../types';
 import { DEFAULT_AVATAR } from '../../constants';
+import { useConfirm } from '../ui/ConfirmDialog';
+import { useToast } from '../ui/Toast';
 
 interface KanbanProps {
   tasks: Task[];
@@ -8,18 +10,19 @@ interface KanbanProps {
   onTaskUpdate: (id: string, updates: Partial<Task>) => Promise<void>;
   onTaskDelete: (id: string) => Promise<void>;
   userRole?: string;
-  currentUser: { name: string, avatar: string };
+  currentUser: { id?: string, name: string, avatar: string };
   team: any[];
 }
 
 export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete, userRole, currentUser, team }) => {
   const allTeamMembers = Array.from(new Map([...team, currentUser].map(m => [m.name, m])).values());
+  const { confirm } = useConfirm();
+  const { showToast } = useToast();
 
   const isAnyManager = [
-    'Gestor de Projectos',
-    'Gestor Criativo',
-    'Gestor de Parceiros e Clientes',
-    'Gestor de Trading e Negociação'
+    'Gestor de Projetos',
+    'Gestor Técnico',
+    'Gestor de Trading'
   ].includes(userRole || '');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,16 +33,48 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
     title: '',
     project: '',
     priority: 'MÉDIA' as Task['priority'],
+    urgency: 'Média' as 'Baixa' | 'Média' | 'Alta' | 'Crítica',
     responsible: currentUser.name,
     startDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    objectives: [''] // Inicia com um campo vazio
+    objectives: [''], // Inicia com um campo vazio
+    relevance: 3
   });
 
-  const columns: Task['status'][] = ['Backlog', 'ToDo', 'InProgress', 'Review', 'Done'];
+  const [urgencyFilter, setUrgencyFilter] = useState<string>('Todos');
+
+  const columns: string[] = ['Por Alocar', 'Backlog', 'ToDo', 'InProgress', 'Review', 'Done'];
+
+  // Today's date as YYYY-MM-DD (used for min= on date inputs)
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // --- Date Validation ---
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(newTask.startDate + 'T00:00:00');
+    const due = new Date(newTask.dueDate + 'T00:00:00');
+
+    if (start < today) {
+      showToast('error', 'A data de início não pode ser no passado.');
+      return;
+    }
+    if (!newTask.dueDate) {
+      showToast('error', 'Por favor, defina um prazo de entrega (Deadline).');
+      return;
+    }
+    if (due < today) {
+      showToast('error', 'O prazo de entrega (Deadline) não pode ser uma data do passado.');
+      return;
+    }
+    if (due < start) {
+      showToast('error', 'O prazo de entrega não pode ser anterior à data de início.');
+      return;
+    }
+    // ----------------------
+
     const validObjectives = newTask.objectives
       .filter(o => o.trim() !== '')
       .map(o => ({ text: o, completed: false }));
@@ -49,10 +84,13 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
       project: newTask.project,
       status: 'Backlog',
       priority: newTask.priority,
+      urgency: newTask.urgency,
       responsible: newTask.responsible,
       startDate: newTask.startDate,
       dueDate: newTask.dueDate,
-      objectives: validObjectives
+      objectives: validObjectives,
+      relevance: newTask.relevance,
+      delegated_by: currentUser.id || ''
     };
 
     await onTaskCreate(task);
@@ -61,10 +99,12 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
       title: '',
       project: '',
       priority: 'MÉDIA',
-      responsible: allTeamMembers[0].name,
+      urgency: 'Média',
+      responsible: allTeamMembers[0]?.name || currentUser.name,
       startDate: new Date().toISOString().split('T')[0],
       dueDate: '',
-      objectives: ['']
+      objectives: [''],
+      relevance: 3
     });
   };
 
@@ -92,6 +132,32 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
     'CRÍTICA': 'bg-red-50 text-red-600'
   };
 
+  const urgencyConfig: Record<string, { color: string; bg: string; icon: string }> = {
+    'Baixa':   { color: 'text-gray-500',   bg: 'bg-gray-100 dark:bg-gray-800',        icon: 'keyboard_arrow_down' },
+    'Média':   { color: 'text-blue-600',   bg: 'bg-blue-50 dark:bg-blue-950/30',     icon: 'remove' },
+    'Alta':    { color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/30', icon: 'keyboard_arrow_up' },
+    'Crítica': { color: 'text-red-600',    bg: 'bg-red-50 dark:bg-red-950/30',       icon: 'priority_high' },
+  };
+
+  // Filter tasks by urgency and unassigned
+  const filteredTasks = (col: string) => {
+    let list = tasks;
+    if (col === 'Por Alocar') {
+      list = list.filter(t => !t.responsible);
+    } else {
+      list = list.filter(t => t.status === col && !!t.responsible);
+    }
+    if (urgencyFilter !== 'Todos') list = list.filter(t => t.urgency === urgencyFilter);
+    return list;
+  };
+
+  const handleClaimTask = async (task: Task) => {
+    const ok = await confirm({ title: 'Assumir Tarefa', message: 'Deseja assumir esta tarefa para si?', confirmText: 'Assumir' });
+    if (ok) {
+      await onTaskUpdate(task.id, { responsible: currentUser.name, responsible_id: currentUser.id });
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
@@ -110,6 +176,21 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
         >
           <span className="material-symbols-outlined text-lg">{isAnyManager ? 'add_circle' : 'lock'}</span> Nova Tarefa
         </button>
+      </div>
+
+      {/* Urgency Filter Bar */}
+      <div className="flex gap-2 items-center flex-wrap">
+        <span className="text-[10px] font-black uppercase tracking-widest text-text-sub">Urgência:</span>
+        {['Todos', 'Crítica', 'Alta', 'Média', 'Baixa'].map(u => (
+          <button key={u} onClick={() => setUrgencyFilter(u)}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+              urgencyFilter === u 
+                ? 'bg-primary text-white shadow-sm shadow-primary/20' 
+                : 'bg-gray-100 dark:bg-zinc-800 text-text-sub hover:bg-gray-200 dark:hover:bg-zinc-700'
+            }`}>
+            {u === 'Crítica' ? '🔴 ' : u === 'Alta' ? '🟠 ' : u === 'Média' ? '🔵 ' : u === 'Baixa' ? '⚪ ' : ''}{u}
+          </button>
+        ))}
       </div>
 
       {/* Dashboard Pessoal do Responsável */}
@@ -157,22 +238,28 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
             <div className="flex items-center justify-between px-2">
               <h3 className="font-black text-[10px] uppercase tracking-widest text-text-sub flex items-center gap-2">
                 <span className={`size-2 rounded-full shadow-sm ${col === 'Done' ? 'bg-green-500 shadow-green-500/20' :
-                  col === 'InProgress' ? 'bg-primary shadow-primary/20' : 'bg-gray-300 dark:bg-zinc-700'
+                  col === 'InProgress' ? 'bg-primary shadow-primary/20' : 
+                  col === 'Por Alocar' ? 'bg-amber-500 shadow-amber-500/20 animate-pulse' : 'bg-gray-300 dark:bg-zinc-700'
                   }`}></span>
                 {col}
               </h3>
               <span className="bg-gray-100 dark:bg-zinc-800/50 text-text-sub px-2.5 py-1 rounded-full text-[10px] font-black">
-                {tasks.filter(t => t.status === col).length}
+                {filteredTasks(col).length}
               </span>
             </div>
             <div className="flex-1 bg-gray-50/50 dark:bg-zinc-900/10 p-2.5 rounded-[2rem] flex flex-col gap-3 min-h-[400px] border border-gray-100 dark:border-zinc-800/30">
-              {tasks.filter(t => t.status === col).map(task => (
+              {filteredTasks(col).map(task => (
                 <div
                   key={task.id}
                   onClick={() => { setSelectedTask(task); setIsDetailOpen(true); }}
-                  className={`bg-white dark:bg-zinc-900/80 backdrop-blur-sm p-5 rounded-2xl border ${task.isLate ? 'border-red-300 dark:border-red-900/50 shadow-red-500/10' : 'border-gray-100 dark:border-zinc-800'} shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden`}
+                  className={`bg-white dark:bg-zinc-900/80 backdrop-blur-sm p-5 rounded-2xl border ${
+                    task.isLate ? 'border-red-300 dark:border-red-900/50 shadow-red-500/10' :
+                    task.priority === 'CRÍTICA' ? 'border-red-500 dark:border-red-500 shadow-md shadow-red-500/20' :
+                    task.priority === 'ALTA' ? 'border-orange-500 dark:border-orange-500 shadow-sm shadow-orange-500/10' :
+                    'border-gray-100 dark:border-zinc-800'
+                  } shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden`}
                 >
-                  <div className={`absolute top-0 left-0 w-1 h-full ${task.priority === 'CRÍTICA' ? 'bg-red-500' :
+                  <div className={`absolute top-0 left-0 w-1.5 h-full ${task.priority === 'CRÍTICA' ? 'bg-red-600 animate-pulse' :
                     task.priority === 'ALTA' ? 'bg-orange-500' :
                       task.priority === 'MÉDIA' ? 'bg-blue-500' : 'bg-gray-300'
                     }`}></div>
@@ -192,7 +279,25 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                   </div>
 
                   <h4 className="text-sm font-black mb-1 leading-snug group-hover:text-primary transition-colors">{task.title}</h4>
-                  <p className="text-[10px] text-text-sub uppercase font-black tracking-widest mb-4 opacity-70">{task.project}</p>
+                  <p className="text-[10px] text-text-sub uppercase font-black tracking-widest mb-2 opacity-70">{task.project}</p>
+
+                  <div className="flex flex-wrap gap-2 mb-3 items-center">
+                    <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded uppercase">
+                      <span className="material-symbols-outlined text-[10px] filled">star</span>
+                      Rel: {task.relevance}/5
+                    </span>
+                    {task.urgency && task.urgency !== 'Média' && (
+                      <span className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${urgencyConfig[task.urgency]?.bg || ''} ${urgencyConfig[task.urgency]?.color || ''}`}>
+                        <span className="material-symbols-outlined text-[10px]">{urgencyConfig[task.urgency]?.icon}</span>
+                        {task.urgency}
+                      </span>
+                    )}
+                    {task.delegated_by_name && (
+                      <span className="text-[9px] font-bold text-text-sub dark:text-zinc-400 bg-gray-50 dark:bg-zinc-800 px-1.5 py-0.5 rounded uppercase">
+                        📌 {task.delegated_by_name}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-2 mb-4 bg-gray-50/50 dark:bg-zinc-800/30 p-2 rounded-xl border border-gray-100/50 dark:border-zinc-800/20">
                     <span className="material-symbols-outlined text-sm text-text-sub">event</span>
@@ -203,10 +308,19 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-50 dark:border-zinc-800/50">
-                    <div className="flex items-center gap-2">
-                      <img src={allTeamMembers.find(m => m.name === task.responsible)?.avatar || DEFAULT_AVATAR} className="size-6 rounded-lg object-cover" alt="" />
-                      <span className="text-[10px] font-bold truncate max-w-[80px]">{task.responsible}</span>
-                    </div>
+                    {!task.responsible ? (
+                      <div className="flex items-center gap-2">
+                        {isAnyManager ? (
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailOpen(true); }} className="text-[10px] font-bold bg-primary text-white px-2 py-1 rounded hover:bg-primary/90">Delegar</button>
+                        ) : null}
+                        <button onClick={(e) => { e.stopPropagation(); handleClaimTask(task); }} className="text-[10px] font-bold bg-gray-200 dark:bg-zinc-700 text-text-sub px-2 py-1 rounded hover:bg-gray-300 dark:hover:bg-zinc-600">Assumir Tarefa</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <img src={allTeamMembers.find(m => m.name === task.responsible)?.avatar || DEFAULT_AVATAR} className="size-6 rounded-lg object-cover" alt="" />
+                        <span className="text-[10px] font-bold truncate max-w-[80px]">{task.responsible}</span>
+                      </div>
+                    )}
                     {task.objectives.length > 0 && (
                       <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg">
                         <span className="material-symbols-outlined text-xs text-primary filled">check_circle</span>
@@ -218,7 +332,7 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                   </div>
                 </div>
               ))}
-              {tasks.filter(t => t.status === col).length === 0 && (
+              {filteredTasks(col).length === 0 && (
                 <div className="flex flex-col items-center justify-center py-10 opacity-30">
                   <span className="material-symbols-outlined text-3xl mb-1">inventory_2</span>
                   <span className="text-[10px] font-black uppercase tracking-widest">Vazio</span>
@@ -250,24 +364,57 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase tracking-wider">Data de Início</label>
-                <input type="date" required className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary" value={newTask.startDate} onChange={e => setNewTask({ ...newTask, startDate: e.target.value })} />
+                <input
+                  type="date"
+                  required
+                  min={todayStr}
+                  className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary"
+                  value={newTask.startDate}
+                  onChange={e => setNewTask({ ...newTask, startDate: e.target.value, dueDate: newTask.dueDate && newTask.dueDate < e.target.value ? '' : newTask.dueDate })}
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase tracking-wider text-red-500">Prazo de Entrega (Deadline)</label>
-                <input type="date" required className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary font-bold text-red-600 dark:text-red-400" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                <input
+                  type="date"
+                  required
+                  min={newTask.startDate || todayStr}
+                  className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary font-bold text-red-600 dark:text-red-400"
+                  value={newTask.dueDate}
+                  onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })}
+                />
+                {newTask.dueDate && newTask.dueDate < todayStr && (
+                  <span className="text-[10px] text-red-500 font-bold">&#9888; Data no passado!</span>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase tracking-wider">Prioridade</label>
-                <select className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
+                <select className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm font-bold" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
                   <option>BAIXA</option><option>MÉDIA</option><option>ALTA</option><option>CRÍTICA</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-sub uppercase tracking-wider text-orange-500">Urgência</label>
+                <select className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm font-bold" value={newTask.urgency} onChange={e => setNewTask({ ...newTask, urgency: e.target.value as any })}>
+                  <option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-sub uppercase tracking-wider">Relevância (1-5)</label>
+                <select className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm font-bold" value={newTask.relevance} onChange={e => setNewTask({ ...newTask, relevance: parseInt(e.target.value) })}>
+                  <option value={1}>1 - Muito Baixa</option>
+                  <option value={2}>2 - Baixa</option>
+                  <option value={3}>3 - Média</option>
+                  <option value={4}>4 - Alta</option>
+                  <option value={5}>5 - Crítica</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase tracking-wider">Responsável Direto</label>
-                <select className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm" value={newTask.responsible} onChange={e => setNewTask({ ...newTask, responsible: e.target.value })}>
+                <select className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm font-bold" value={newTask.responsible} onChange={e => setNewTask({ ...newTask, responsible: e.target.value })}>
                   {allTeamMembers.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
                 </select>
               </div>
@@ -321,7 +468,8 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                 {isAnyManager && (
                   <button
                     onClick={async () => {
-                      if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                      const ok = await confirm({ title: 'Excluir Tarefa', message: 'Tem certeza que deseja excluir esta tarefa?', isDanger: true, confirmText: 'Excluir' });
+                      if (ok) {
                         await onTaskDelete(selectedTask.id);
                         setIsDetailOpen(false);
                       }
@@ -348,10 +496,22 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase">Prazo Final</label>
-                <div className="flex items-center gap-2 text-red-500">
+                <div className="flex items-center gap-2 text-red-500 font-bold">
                   <span className="material-symbols-outlined text-sm">event</span>
                   <span className="text-xs font-black">{formatDate(selectedTask.dueDate)}</span>
                 </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-sub uppercase">Relevância</label>
+                <span className="text-xs font-bold bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-md w-fit font-bold">
+                  {selectedTask.relevance} de 5
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-sub uppercase">Prioridade</label>
+                <span className="text-xs font-bold uppercase w-fit font-bold">
+                  {selectedTask.priority}
+                </span>
               </div>
             </div>
 
@@ -360,7 +520,7 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
               <div className="grid grid-cols-5 gap-1">
                 {columns.map(status => {
                   const isCurrent = selectedTask.status === status;
-                  const canChange = userRole === 'Gestor de Projectos' || selectedTask.responsible === currentUser.name;
+                  const canChange = userRole === 'Gestor de Projetos' || selectedTask.responsible === currentUser.name;
 
                   return (
                     <button
@@ -380,7 +540,7 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                   );
                 })}
               </div>
-              {!(userRole === 'Gestor de Projectos' || selectedTask.responsible === currentUser.name) && (
+              {!(userRole === 'Gestor de Projetos' || selectedTask.responsible === currentUser.name) && (
                 <p className="text-[9px] text-red-500 font-bold italic">* Apenas o GP ou o responsável podem mudar o status.</p>
               )}
             </div>

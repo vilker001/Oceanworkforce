@@ -2,6 +2,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { ToastProvider } from './components/ui/Toast';
+import { ConfirmProvider } from './components/ui/ConfirmDialog';
 
 console.log('[Ocean] index.tsx: module loading...');
 
@@ -20,7 +22,11 @@ try {
   console.log('[Ocean] rendering App...');
   root.render(
     <React.StrictMode>
-      <App />
+      <ToastProvider>
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
+      </ToastProvider>
     </React.StrictMode>
   );
   console.log('[Ocean] render() called successfully');

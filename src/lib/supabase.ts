@@ -1,16 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder';
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'placeholder';
 
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+if (!(import.meta as any).env?.VITE_SUPABASE_URL || !(import.meta as any).env?.VITE_SUPABASE_ANON_KEY) {
     console.error('CRITICAL: Missing Supabase environment variables! VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is undefined in the build process. Please check your Vercel Environment Variables.');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<any>(supabaseUrl, supabaseAnonKey, {
     auth: {
-        persistSession: true,
+        persistSession: false,
         autoRefreshToken: true,
     },
 });

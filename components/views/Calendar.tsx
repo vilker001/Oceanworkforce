@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CalendarEvent, EventType, Task } from '../../types';
+import { useConfirm } from '../ui/ConfirmDialog';
 
 interface CalendarProps {
   events: CalendarEvent[];
@@ -14,7 +15,10 @@ const eventStyles: Record<EventType | 'Deadline', string> = {
   'Feriado': 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
   'Folga': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
   'Geral': 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800',
-  'Deadline': 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800 shadow-sm'
+  'Deadline': 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800 shadow-sm',
+  'Etapa de Projeto': 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800',
+  'Sessão de Foto': 'bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-800',
+  'Tarefa': 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-800'
 };
 
 const eventIcons: Record<EventType | 'Deadline', string> = {
@@ -22,10 +26,45 @@ const eventIcons: Record<EventType | 'Deadline', string> = {
   'Feriado': 'flag',
   'Folga': 'beach_access',
   'Geral': 'event_available',
-  'Deadline': 'assignment_return'
+  'Deadline': 'assignment_return',
+  'Etapa de Projeto': 'folder',
+  'Sessão de Foto': 'photo_camera',
+  'Tarefa': 'task_alt'
+};
+
+const MOZ_HOLIDAYS = [
+  { month: 0, day: 1, title: 'Dia da Fraternidade Universal' },
+  { month: 1, day: 3, title: 'Dia dos Heróis Moçambicanos' },
+  { month: 3, day: 7, title: 'Dia da Mulher Moçambicana' },
+  { month: 4, day: 1, title: 'Dia Internacional do Trabalhador' },
+  { month: 5, day: 25, title: 'Dia da Independência Nacional' },
+  { month: 8, day: 7, title: 'Dia da Vitória' },
+  { month: 8, day: 25, title: 'Dia das Forças Armadas' },
+  { month: 9, day: 4, title: 'Dia da Paz e Reconciliação' },
+  { month: 11, day: 25, title: 'Dia da Família' }
+];
+
+const generateHolidays = (startYear: number, endYear: number): CalendarEvent[] => {
+  const holidays: CalendarEvent[] = [];
+  for (let year = startYear; year <= endYear; year++) {
+    MOZ_HOLIDAYS.forEach(h => {
+      const d = new Date(year, h.month, h.day);
+      const isoDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+      holidays.push({
+        id: `feriado-${year}-${h.month}-${h.day}`,
+        title: h.title,
+        date: isoDate,
+        type: 'Feriado',
+        description: 'Feriado Nacional de Moçambique',
+        creatorName: 'Sistema'
+      });
+    });
+  }
+  return holidays;
 };
 
 export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, userRole, onDeleteEvent }) => {
+  const { confirm } = useConfirm();
   // Configurable bounds
   const MIN_DATE = new Date(2026, 2, 1); // Março 2026
   const MAX_DATE = new Date(2030, 11, 1); // Dezembro 2030
@@ -46,12 +85,29 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventDetailOpen, setIsEventDetailOpen] = useState(false);
 
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState<Omit<CalendarEvent, 'id'>>({
     title: '',
     date: '',
-    type: 'Geral' as EventType,
+    type: 'Folga',
     description: ''
   });
+
+  const holidays = useMemo(() => generateHolidays(MIN_DATE.getFullYear(), MAX_DATE.getFullYear()), [MIN_DATE, MAX_DATE]);
+
+  // Merge tasks into events (as 'Deadline' pseudo-events)
+  const allEvents: (CalendarEvent | { isTask: true, taskData: Task, date: string, type: string, title: string, id: string })[] = useMemo(() => {
+    const evts = [...events, ...holidays];
+    const tsk = tasks.filter(t => t.dueDate).map(t => ({
+        id: `task-${t.id}`,
+        title: `ENTREGA: ${t.title}`,
+        date: t.dueDate,
+        type: 'Deadline',
+        isTask: true,
+        taskData: t
+      } as any));
+    
+    return [...evts, ...tsk].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [events, tasks, holidays, filters]);
 
   const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -316,7 +372,11 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
               <input required className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm" placeholder="Título" value={newEvent.title} onChange={e => setNewEvent({ ...newEvent, title: e.target.value })} />
               <div className="grid grid-cols-2 gap-4">
                 <select className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm" value={newEvent.type} onChange={e => setNewEvent({ ...newEvent, type: e.target.value as EventType })}>
-                  <option>Reunião</option><option>Feriado</option><option>Folga</option><option>Geral</option>
+                  <option>Folga</option>
+                  <option>Reunião</option>
+                  <option>Tarefa</option>
+                  <option>Geral</option>
+                  <option>Feriado</option>
                 </select>
                 <input required type="date" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm" value={newEvent.date} onChange={e => setNewEvent({ ...newEvent, date: e.target.value })} />
               </div>
@@ -409,11 +469,12 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
                 <h3 className="text-2xl font-black">{selectedEvent.title}</h3>
               </div>
               <div className="flex items-center gap-2">
-                {onDeleteEvent && (userRole === 'Gestor de Projectos' || userRole === 'Admin' || selectedEvent.creatorName === 'Me' || true) && (
+                {selectedEvent.type !== 'Feriado' && onDeleteEvent && (userRole === 'Gestor de Projectos' || userRole === 'Admin' || selectedEvent.creatorName === 'Me' || true) && (
                   <button
                     type="button"
                     onClick={async () => {
-                      if (window.confirm('Tem certeza que deseja excluir este evento?')) {
+                      const ok = await confirm({ title: 'Excluir Evento', message: 'Tem certeza que deseja excluir este evento?', isDanger: true, confirmText: 'Excluir' });
+                      if (ok) {
                         await onDeleteEvent(selectedEvent.id);
                         setIsEventDetailOpen(false);
                       }

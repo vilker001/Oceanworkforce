@@ -23,13 +23,10 @@ export const useTeam = () => {
 
         const subscription = supabase
             .channel('users_channel')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'users'
-            }, () => {
-                if (mounted) fetchTeam();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { if (mounted) fetchTeam(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => { if (mounted) fetchTeam(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { if (mounted) fetchTeam(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'xp_history' }, () => { if (mounted) fetchTeam(); })
             .subscribe();
 
         return () => {
@@ -43,24 +40,37 @@ export const useTeam = () => {
             // 1. Fetch Users
             const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('id, name, role, email, avatar, created_at')
+                .select('id, name, role, email, avatar, created_at, employee_id, phone, birth_date, gender')
                 .order('created_at', { ascending: true });
 
             if (userError) throw userError;
 
-            // 2. Fetch Tasks for Metrics
+            // 2. Fetch XP History
+            const { data: xpData, error: xpError } = await supabase
+                .from('xp_history')
+                .select('user_id, xp_amount');
+
+            if (xpError) throw xpError;
+
+            // 3. Fetch Tasks for Metrics
             const { data: taskData, error: taskError } = await supabase
                 .from('tasks')
                 .select('responsible_id, status, priority');
 
             if (taskError) throw taskError;
 
-            // 3. Fetch Clients for Metrics
+            // 4. Fetch Clients for Metrics
             const { data: clientData, error: clientError } = await supabase
                 .from('clients')
                 .select('responsible_id, name');
 
             if (clientError) throw clientError;
+
+            // Create XP map
+            const xpMap: Record<string, number> = {};
+            (xpData || []).forEach((entry: any) => {
+                xpMap[entry.user_id] = (xpMap[entry.user_id] || 0) + entry.xp_amount;
+            });
 
             // Transform users to TeamMember format with real metrics
             const transformedTeam: TeamMember[] = (userData || []).map((user: any) => {
@@ -71,9 +81,19 @@ export const useTeam = () => {
                 const missed = userTasks.filter(t => t.status === 'Missed').length;
                 const total = userTasks.length;
 
-                // Simple XP/Level logic: 100 XP per completed task
-                const xp = completed * 105 + pending * 5; // Bonus for participation
-                const level = Math.floor(xp / 1000) + 1;
+                // Real XP/Level logic
+                const xp = xpMap[user.id] || 0;
+                const level = Math.max(1, Math.floor(xp / 1000) + 1);
+
+                // Badge assignment based on levels
+                let badge = 'Iniciante';
+                if (level >= 21) {
+                    badge = 'Elite Member';
+                } else if (level >= 11) {
+                    badge = 'Top Performer';
+                } else if (level >= 6) {
+                    badge = 'Competente';
+                }
 
                 // KPI Logic (mocked but based on real task ratios)
                 const qualityScore = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -83,12 +103,15 @@ export const useTeam = () => {
                     id: user.id,
                     name: user.name,
                     role: user.role,
-                    email: user.email,
-                    phone: '+258 8X XXX XXXX',
+                    email: user.email || '',
+                    phone: user.phone || '+258 8X XXX XXXX',
+                    employeeId: user.employee_id || '',
+                    birthDate: user.birth_date || '',
+                    gender: user.gender || '',
                     avatar: user.avatar,
                     level,
                     xp,
-                    badges: level > 2 ? ['Elite Member', 'Top Performer'] : ['Membro da Equipe'],
+                    badges: [badge],
                     metrics: {
                         completed,
                         pending,

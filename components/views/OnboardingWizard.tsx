@@ -2,26 +2,26 @@ import React, { useState } from 'react';
 import { UserRole } from '../../types';
 
 interface OnboardingWizardProps {
-    onFinish: (data: { role: UserRole; avatar: string; kpis: string[]; name: string }) => void;
+    onFinish: (data: { role: UserRole; avatar: string; kpis: string[]; name: string; phone: string; birthDate: string; gender: string; employeeId: string }) => void;
 }
 
 const ROLES: { id: UserRole; title: string, desc: string, icon: string }[] = [
-    { id: 'Gestor de Projectos', title: 'Gestor de Projectos', desc: 'Coordenação estratégica e execução técnica.', icon: 'account_tree' },
-    { id: 'Gestor Criativo', title: 'Gestor Criativo', desc: 'Direção de arte e inovação visual.', icon: 'palette' },
-    { id: 'Gestor de Parceiros e Clientes', title: 'Gestor de Parceiros e Clientes', desc: 'Relacionamento e expansão de mercado.', icon: 'handshake' },
-    { id: 'Gestor de Trading e Negociação', title: 'Gestor de Trading e Negociação', desc: 'Operações financeiras e deals estratégicos.', icon: 'currency_exchange' },
-    { id: 'Designer', title: 'Designer', desc: 'Produção visual e criativa.', icon: 'brush' },
-    { id: 'Fotógrafo Sênior', title: 'Fotógrafo Sênior', desc: 'Direção e captação fotográfica avançada.', icon: 'camera_alt' },
-    { id: 'Fotógrafo Júnior', title: 'Fotógrafo Júnior', desc: 'Apoio e captação fotográfica.', icon: 'photo_camera' },
-    { id: 'Promoter de Venda', title: 'Promoter de Venda', desc: 'Prospecção e ativação comercial.', icon: 'campaign' },
-    { id: 'Videomaker', title: 'Videomaker', desc: 'Captação e edição de vídeo.', icon: 'videocam' },
+    { id: 'Gestor de Projetos', title: 'Gestor de Projetos', desc: 'Coordenação estratégica e execução técnica.', icon: 'account_tree' },
+    { id: 'Gestor Técnico', title: 'Gestor Técnico', desc: 'Direção de infraestrutura e projetos de tecnologia.', icon: 'code' },
+    { id: 'Gestor de Trading', title: 'Gestor de Trading', desc: 'Operações financeiras e trading de capitais.', icon: 'currency_exchange' },
+    { id: 'Fotógrafo', title: 'Fotógrafo', desc: 'Produção audiovisual, captação e edição.', icon: 'camera_alt' },
+    { id: 'Promoter de Venda', title: 'Promoter de Venda', desc: 'Prospecção e qualificação comercial.', icon: 'campaign' },
+    { id: 'Colaborador', title: 'Colaborador', desc: 'Apoio e execução de tarefas gerais.', icon: 'person' },
 ];
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onFinish }) => {
     const [step, setStep] = useState(1);
     const [data, setData] = useState({
         name: '',
-        role: 'Gestor de Projectos' as UserRole,
+        phone: '',
+        birthDate: '',
+        gender: '',
+        role: 'Gestor de Projetos' as UserRole,
         avatar: '', // User must upload or we use default
         kpis: ['ROI', 'Margem', 'Tarefas Concluídas']
     });
@@ -47,8 +47,22 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onFinish }) 
     };
 
     const next = () => {
-        if (step === 1 && !data.name) return alert('Por favor, informe seu nome.');
+        if (step === 1) {
+            if (!data.name) return alert('Por favor, informe seu nome.');
+            if (!data.phone) return alert('Por favor, informe seu contacto.');
+            if (!data.birthDate) return alert('Por favor, informe sua data de nascimento.');
+            if (!data.gender) return alert('Por favor, informe seu género.');
+        }
         setStep(s => s + 1);
+    };
+
+    const handleFinish = () => {
+        let employeeId = '';
+        if (data.birthDate) {
+            const [year, month, day] = data.birthDate.split('-');
+            employeeId = `001${day}${month}${year}`;
+        }
+        onFinish({ ...data, employeeId });
     };
     const prev = () => setStep(s => s - 1);
 
@@ -79,16 +93,59 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onFinish }) 
                                     <h1 className="text-4xl lg:text-5xl font-black tracking-tight mb-4">Bem-vindo à Ocean</h1>
                                     <p className="text-text-sub text-lg font-medium">Como podemos te chamar?</p>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">Nome completo ou artístico</label>
-                                    <input
-                                        autoFocus
-                                        type="text"
-                                        className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-6 text-2xl font-black outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-zinc-700"
-                                        placeholder="Ex: Alex Rivera"
-                                        value={data.name}
-                                        onChange={e => setData({ ...data, name: e.target.value })}
-                                    />
+                                <div className="flex flex-col gap-6">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">Nome completo ou artístico</label>
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-xl font-black outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-zinc-700"
+                                            placeholder="Ex: Alex Rivera"
+                                            value={data.name}
+                                            onChange={e => setData({ ...data, name: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">Contacto (Celular)</label>
+                                            <input
+                                                type="text"
+                                                className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-xl font-black outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-zinc-700"
+                                                placeholder="Ex: +258 84 123 4567"
+                                                value={data.phone}
+                                                onChange={e => setData({ ...data, phone: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">Data de Nascimento</label>
+                                            <input
+                                                type="date"
+                                                className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-xl font-black outline-none transition-all"
+                                                value={data.birthDate}
+                                                onChange={e => setData({ ...data, birthDate: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">Género</label>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {['Masculino', 'Feminino', 'Outro'].map((g) => (
+                                                <button
+                                                    key={g}
+                                                    onClick={() => setData({ ...data, gender: g })}
+                                                    className={`p-4 rounded-2xl border-2 font-bold text-sm transition-all ${
+                                                        data.gender === g 
+                                                        ? 'border-primary bg-primary/10 text-primary' 
+                                                        : 'border-transparent bg-gray-50 dark:bg-zinc-800/50 text-text-sub hover:bg-gray-100 dark:hover:bg-zinc-800'
+                                                    }`}
+                                                >
+                                                    {g}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -204,7 +261,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onFinish }) 
                             ) : <div></div>}
 
                             <button
-                                onClick={step === 4 ? () => onFinish(data) : next}
+                                onClick={step === 4 ? handleFinish : next}
                                 className="bg-primary hover:bg-primary-dark text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.15em] shadow-2xl shadow-primary/30 flex items-center gap-3 transform hover:-translate-y-1 active:scale-95 transition-all"
                             >
                                 {step === 4 ? 'Finalizar Setup' : 'Próxima Etapa'}

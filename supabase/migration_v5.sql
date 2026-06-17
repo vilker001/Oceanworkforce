@@ -1,18 +1,21 @@
 -- =====================================================
--- OCEAN WORKFORCE - MIGRATION V5 (FIX AUTH)
+-- OCEAN WORKFORCE - MIGRATION V5 (FIX AUTH - COMPLETO)
 -- =====================================================
 -- Execute isto no SQL Editor do Supabase para corrigir o erro de Login
 -- =====================================================
 
--- 1. Corrigir utilizadores existentes com NULL nos tokens (causa o "Database error querying schema")
+-- 1. Corrigir TODOS os campos exigidos pela nova versão do Supabase Auth
 UPDATE auth.users 
 SET 
   confirmation_token = COALESCE(confirmation_token, ''),
   recovery_token = COALESCE(recovery_token, ''),
   email_change_token_new = COALESCE(email_change_token_new, ''),
-  email_change_token_current = COALESCE(email_change_token_current, '');
+  email_change_token_current = COALESCE(email_change_token_current, ''),
+  phone = COALESCE(phone, ''),
+  is_sso_user = COALESCE(is_sso_user, false),
+  is_super_admin = COALESCE(is_super_admin, false);
 
--- 2. Atualizar a função de criação de utilizadores para não gerar NULLs no futuro
+-- 2. Atualizar a função de criação de utilizadores para preencher estes campos automaticamente
 CREATE OR REPLACE FUNCTION public.create_new_user(
   p_email TEXT,
   p_password TEXT,
@@ -42,7 +45,7 @@ BEGIN
   -- Encriptar password (compatível com auth.users do Supabase)
   encrypted_pw := crypt(p_password, gen_salt('bf'));
 
-  -- Inserir no Supabase Auth com os tokens vazios para evitar erro no Login
+  -- Inserir no Supabase Auth com todos os valores default requeridos pelo GoTrue
   INSERT INTO auth.users (
     instance_id,
     id,
@@ -58,7 +61,10 @@ BEGIN
     confirmation_token,
     recovery_token,
     email_change_token_new,
-    email_change_token_current
+    email_change_token_current,
+    phone,
+    is_sso_user,
+    is_super_admin
   ) VALUES (
     '00000000-0000-0000-0000-000000000000',
     new_user_id,
@@ -74,7 +80,10 @@ BEGIN
     '',
     '',
     '',
-    ''
+    '',
+    '',
+    false,
+    false
   );
 
   -- Inserir no perfil público

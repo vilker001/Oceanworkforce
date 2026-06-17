@@ -36,9 +36,11 @@ SELECT 68.33 WHERE NOT EXISTS (SELECT 1 FROM public.system_settings);
 
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow authenticated read system_settings" ON public.system_settings;
 CREATE POLICY "Allow authenticated read system_settings" 
   ON public.system_settings FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow GP and managers to update system_settings" ON public.system_settings;
 CREATE POLICY "Allow GP and managers to update system_settings" 
   ON public.system_settings FOR UPDATE USING (
     EXISTS (
@@ -52,18 +54,23 @@ CREATE POLICY "Allow GP and managers to update system_settings"
 -- =====================================================
 CREATE TABLE IF NOT EXISTS public.service_catalog (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  catalog_type TEXT NOT NULL CHECK (catalog_type IN ('BMS Studio', 'Ocean Group')),
+  catalog_type TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
   price_mt DECIMAL(12,2) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+ALTER TABLE public.service_catalog DROP CONSTRAINT IF EXISTS service_catalog_catalog_type_check;
+ALTER TABLE public.service_catalog ADD CONSTRAINT service_catalog_catalog_type_check CHECK (catalog_type IN ('BMS Studio', 'Ocean Group'));
+
 ALTER TABLE public.service_catalog ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow authenticated read service_catalog" ON public.service_catalog;
 CREATE POLICY "Allow authenticated read service_catalog" 
   ON public.service_catalog FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow GP to write service_catalog" ON public.service_catalog;
 CREATE POLICY "Allow GP to write service_catalog" 
   ON public.service_catalog FOR ALL USING (
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'Gestor de Projetos')
@@ -89,11 +96,13 @@ CREATE TABLE IF NOT EXISTS public.fixed_expenses (
 
 ALTER TABLE public.fixed_expenses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow GP to manage fixed_expenses" ON public.fixed_expenses;
 CREATE POLICY "Allow GP to manage fixed_expenses" 
   ON public.fixed_expenses FOR ALL USING (
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'Gestor de Projetos')
   );
 
+DROP POLICY IF EXISTS "Allow managers to read fixed_expenses" ON public.fixed_expenses;
 CREATE POLICY "Allow managers to read fixed_expenses" 
   ON public.fixed_expenses FOR SELECT USING (
     EXISTS (
@@ -147,9 +156,11 @@ ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_stages ENABLE ROW LEVEL SECURITY;
 
 -- Project policies
+DROP POLICY IF EXISTS "Allow authenticated read projects" ON public.projects;
 CREATE POLICY "Allow authenticated read projects" 
   ON public.projects FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow GP and GT to manage projects" ON public.projects;
 CREATE POLICY "Allow GP and GT to manage projects" 
   ON public.projects FOR ALL USING (
     EXISTS (
@@ -160,9 +171,11 @@ CREATE POLICY "Allow GP and GT to manage projects"
   );
 
 -- Project stage policies
+DROP POLICY IF EXISTS "Allow authenticated read project_stages" ON public.project_stages;
 CREATE POLICY "Allow authenticated read project_stages" 
   ON public.project_stages FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow GP and GT to manage project_stages" ON public.project_stages;
 CREATE POLICY "Allow GP and GT to manage project_stages" 
   ON public.project_stages FOR ALL USING (
     EXISTS (
@@ -191,6 +204,7 @@ CREATE TABLE IF NOT EXISTS public.follow_ups (
 
 ALTER TABLE public.follow_ups ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow visible follow_ups to authorized users" ON public.follow_ups;
 CREATE POLICY "Allow visible follow_ups to authorized users" 
   ON public.follow_ups FOR SELECT TO authenticated USING (
     auth.uid() = created_by OR
@@ -201,6 +215,7 @@ CREATE POLICY "Allow visible follow_ups to authorized users"
     )
   );
 
+DROP POLICY IF EXISTS "Allow authenticated to insert follow_ups" ON public.follow_ups;
 CREATE POLICY "Allow authenticated to insert follow_ups" 
   ON public.follow_ups FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
@@ -225,9 +240,11 @@ CREATE TABLE IF NOT EXISTS public.photo_sessions (
 
 ALTER TABLE public.photo_sessions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow authenticated read photo_sessions" ON public.photo_sessions;
 CREATE POLICY "Allow authenticated read photo_sessions" 
   ON public.photo_sessions FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow photographers and GP to write photo_sessions" ON public.photo_sessions;
 CREATE POLICY "Allow photographers and GP to write photo_sessions" 
   ON public.photo_sessions FOR ALL USING (
     auth.uid() = photographer_id OR
@@ -257,6 +274,7 @@ CREATE TABLE IF NOT EXISTS public.trading_trades (
 
 ALTER TABLE public.trading_trades ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow managers to view trading_trades" ON public.trading_trades;
 CREATE POLICY "Allow managers to view trading_trades" 
   ON public.trading_trades FOR SELECT USING (
     EXISTS (
@@ -266,6 +284,7 @@ CREATE POLICY "Allow managers to view trading_trades"
     )
   );
 
+DROP POLICY IF EXISTS "Allow trading manager and GP to write trading_trades" ON public.trading_trades;
 CREATE POLICY "Allow trading manager and GP to write trading_trades" 
   ON public.trading_trades FOR ALL USING (
     EXISTS (
@@ -308,15 +327,21 @@ ALTER TABLE public.xp_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.monthly_titles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow authenticated read xp_history" ON public.xp_history;
 CREATE POLICY "Allow authenticated read xp_history" ON public.xp_history FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow system/GP write xp_history" ON public.xp_history;
 CREATE POLICY "Allow system/GP write xp_history" ON public.xp_history FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated read team_goals" ON public.team_goals;
 CREATE POLICY "Allow authenticated read team_goals" ON public.team_goals FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow GP write team_goals" ON public.team_goals;
 CREATE POLICY "Allow GP write team_goals" ON public.team_goals FOR ALL USING (
   EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'Gestor de Projetos')
 );
 
+DROP POLICY IF EXISTS "Allow authenticated read monthly_titles" ON public.monthly_titles;
 CREATE POLICY "Allow authenticated read monthly_titles" ON public.monthly_titles FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow system write monthly_titles" ON public.monthly_titles;
 CREATE POLICY "Allow system write monthly_titles" ON public.monthly_titles FOR ALL USING (true);
 
 -- 11. USER KPIS TABLE
@@ -333,7 +358,9 @@ CREATE TABLE IF NOT EXISTS public.user_kpis (
 
 ALTER TABLE public.user_kpis ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow authenticated read user_kpis" ON public.user_kpis;
 CREATE POLICY "Allow authenticated read user_kpis" ON public.user_kpis FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow managers to update user_kpis" ON public.user_kpis;
 CREATE POLICY "Allow managers to update user_kpis" ON public.user_kpis FOR ALL USING (
   EXISTS (
     SELECT 1 FROM public.users 

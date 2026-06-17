@@ -11,6 +11,12 @@ export const ChangePassword: React.FC<ChangePasswordProps> = ({ userId, onPasswo
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [phone, setPhone] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [gender, setGender] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -36,11 +42,17 @@ export const ChangePassword: React.FC<ChangePasswordProps> = ({ userId, onPasswo
 
       if (authError) throw authError;
 
-      // 2. Update must_change_password to false in public.users and save Avatar
+      // 2. Update must_change_password to false in public.users and save additional data
       const finalAvatar = avatar.trim() || `https://ui-avatars.com/api/?background=random&color=fff&name=Colaborador`;
+      const updateData: any = { must_change_password: false, avatar: finalAvatar };
+      if (phone.trim()) updateData.phone = phone.trim();
+      if (employeeId.trim()) updateData.employee_id = employeeId.trim();
+      if (birthDate.trim()) updateData.birth_date = birthDate.trim();
+      if (gender.trim()) updateData.gender = gender.trim();
+
       const { error: dbError } = await supabase
         .from('users')
-        .update({ must_change_password: false, avatar: finalAvatar })
+        .update(updateData)
         .eq('id', userId);
 
       if (dbError) throw dbError;
@@ -71,32 +83,107 @@ export const ChangePassword: React.FC<ChangePasswordProps> = ({ userId, onPasswo
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 relative">
               <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">
                 Nova Password
               </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  className="w-full bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 pr-12 text-sm font-bold outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-zinc-700"
+                  placeholder="Introduza a nova password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-text-main transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 relative">
+              <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">
+                Confirmar Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  className="w-full bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 pr-12 text-sm font-bold outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-zinc-700"
+                  placeholder="Confirme a nova password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-text-main transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">
+                Número de Celular
+              </label>
               <input
-                type="password"
+                type="tel"
                 required
                 className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-sm font-bold outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-zinc-700"
-                placeholder="Introduza a nova password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+                placeholder="Ex: 840000000"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
               />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">
-                Confirmar Password
+                ID de Funcionário (Opcional)
               </label>
               <input
-                type="password"
-                required
+                type="text"
                 className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-sm font-bold outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-zinc-700"
-                placeholder="Confirme a nova password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Ex: FUNC-001"
+                value={employeeId}
+                onChange={e => setEmployeeId(e.target.value)}
               />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">
+                Data de Nascimento
+              </label>
+              <input
+                type="date"
+                required
+                className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-sm font-bold outline-none transition-all"
+                value={birthDate}
+                onChange={e => setBirthDate(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-text-sub ml-4">
+                Género
+              </label>
+              <select
+                required
+                className="bg-gray-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl p-4 text-sm font-bold outline-none transition-all"
+                value={gender}
+                onChange={e => setGender(e.target.value)}
+              >
+                <option value="" disabled>Selecione o Género</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Feminino">Feminino</option>
+                <option value="Prefiro não dizer">Prefiro não dizer</option>
+              </select>
             </div>
 
             <div className="flex flex-col gap-2">

@@ -55,7 +55,7 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
     try {
       const { data: newUserId, error } = await supabase.rpc('create_new_user', {
         p_email: addEmail.trim(),
-        p_password: addPassword,
+        p_password: 'OceanTeam2026',
         p_name: addName.trim(),
         p_role: addRole,
         p_avatar: addAvatar.trim() || DEFAULT_AVATAR
@@ -387,16 +387,9 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black uppercase text-text-sub ml-1">Password Inicial</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Mínimo 6 caracteres"
-                  className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
-                  value={addPassword}
-                  onChange={e => setAddPassword(e.target.value)}
-                />
+              <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3 rounded-xl text-xs flex gap-2 items-start mt-2">
+                <span className="material-symbols-outlined text-sm shrink-0">info</span>
+                <p>A senha inicial será <strong>OceanTeam2026</strong>. O colaborador será forçado a alterar esta senha e definir o seu Avatar no primeiro login.</p>
               </div>
 
               <div className="flex flex-col gap-1">

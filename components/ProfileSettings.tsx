@@ -2,7 +2,15 @@ import React, { useState, useRef } from 'react';
 import { supabase } from '../src/lib/supabase';
 
 interface ProfileSettingsProps {
-    user: { name: string; role: string; avatar: string };
+    user: { 
+        name: string; 
+        role: string; 
+        avatar: string;
+        phone?: string;
+        employeeId?: string;
+        birthDate?: string;
+        gender?: string;
+    };
     onClose: () => void;
     onUpdate: (newAvatar: string, newName: string) => void;
 }
@@ -10,6 +18,10 @@ interface ProfileSettingsProps {
 export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ user, onClose, onUpdate }) => {
     const [selectedAvatar, setSelectedAvatar] = useState(user.avatar);
     const [name, setName] = useState(user.name);
+    const [phone, setPhone] = useState(user.phone || '');
+    const [employeeId, setEmployeeId] = useState(user.employeeId || '');
+    const [birthDate, setBirthDate] = useState(user.birthDate || '');
+    const [gender, setGender] = useState(user.gender || '');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [saving, setSaving] = useState(false);
@@ -88,7 +100,11 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ user, onClose,
                 .from('users')
                 .update({ 
                     name: name.trim(), 
-                    avatar: selectedAvatar 
+                    avatar: selectedAvatar,
+                    phone: phone.trim(),
+                    employee_id: employeeId.trim(),
+                    birth_date: birthDate.trim(),
+                    gender: gender.trim()
                 } as any)
                 .eq('id', authUser.id);
 
@@ -148,6 +164,49 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ user, onClose,
                             value={name}
                             onChange={e => setName(e.target.value)}
                         />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-text-sub ml-1">Nº Celular</label>
+                            <input
+                                type="text"
+                                className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                                value={phone}
+                                onChange={e => setPhone(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-text-sub ml-1">ID Funcionário</label>
+                            <input
+                                type="text"
+                                className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                                value={employeeId}
+                                onChange={e => setEmployeeId(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-text-sub ml-1">Nascimento</label>
+                            <input
+                                type="date"
+                                className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                                value={birthDate}
+                                onChange={e => setBirthDate(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-text-sub ml-1">Género</label>
+                            <select
+                                className="bg-gray-50 dark:bg-zinc-800/50 p-4 rounded-xl border-none outline-none font-bold text-sm"
+                                value={gender}
+                                onChange={e => setGender(e.target.value)}
+                            >
+                                <option value="">Selecione...</option>
+                                <option value="Masculino">Masculino</option>
+                                <option value="Feminino">Feminino</option>
+                                <option value="Prefiro não dizer">Prefiro não dizer</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* Current Avatar Preview & Upload */}

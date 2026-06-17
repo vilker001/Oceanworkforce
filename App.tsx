@@ -185,7 +185,11 @@ const App: React.FC = () => {
           role: normalizedRole,
           avatar: p.avatar || DEFAULT_AVATAR,
           email: p.email || '',
-          must_change_password: p.must_change_password ?? false
+          must_change_password: p.must_change_password ?? false,
+          phone: p.phone,
+          employeeId: p.employee_id,
+          birthDate: p.birth_date,
+          gender: p.gender
         };
         setUser(userData);
         userRef.current = userData;

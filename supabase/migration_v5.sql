@@ -1,5 +1,5 @@
 -- =====================================================
--- OCEAN WORKFORCE - MIGRATION V5 (FIX AUTH - COMPLETO)
+-- OCEAN WORKFORCE - MIGRATION V5 (FIX AUTH)
 -- =====================================================
 -- Execute isto no SQL Editor do Supabase para corrigir o erro de Login
 -- =====================================================
@@ -11,7 +11,6 @@ SET
   recovery_token = COALESCE(recovery_token, ''),
   email_change_token_new = COALESCE(email_change_token_new, ''),
   email_change_token_current = COALESCE(email_change_token_current, ''),
-  phone = COALESCE(phone, ''),
   is_sso_user = COALESCE(is_sso_user, false),
   is_super_admin = COALESCE(is_super_admin, false);
 
@@ -81,7 +80,7 @@ BEGIN
     '',
     '',
     '',
-    '',
+    NULL,
     false,
     false
   );

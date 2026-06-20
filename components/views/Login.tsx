@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Logo } from '../../constants';
-import { supabase } from '../../src/lib/supabase';
+import { supabase, isMissingSupabaseConfig } from '../../src/lib/supabase';
+
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -21,6 +22,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
     setError('');
 
+    // Block login if Supabase is not configured
+    if (isMissingSupabaseConfig) {
+      setError('Configuração do servidor incompleta. Por favor, configure as variáveis de ambiente do Supabase no Vercel (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -33,10 +41,26 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     } catch (err: any) {
       console.error('Login error:', err);
-      // Increment failed attempts
       setFailedAttempts(prev => prev + 1);
 
-      setError(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
+      // Translate common Supabase errors to Portuguese
+      let errorMsg = err.message || 'Erro ao fazer login. Verifique suas credenciais.';
+      if (
+        errorMsg.includes('Database error querying schema') ||
+        errorMsg.includes('querying schema') ||
+        errorMsg.includes('failed to fetch') ||
+        errorMsg.includes('Failed to fetch')
+      ) {
+        errorMsg = 'Erro de conexão com o banco de dados. As variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY precisam ser configuradas no Vercel.';
+      } else if (errorMsg.includes('Invalid login credentials') || errorMsg.includes('invalid_credentials')) {
+        errorMsg = 'E-mail ou senha incorretos. Tente novamente.';
+      } else if (errorMsg.includes('Email not confirmed')) {
+        errorMsg = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
+      } else if (errorMsg.includes('Too many requests') || errorMsg.includes('rate limit')) {
+        errorMsg = 'Muitas tentativas. Aguarde alguns instantes e tente novamente.';
+      }
+
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -129,17 +153,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             {!isRecovering && (
               <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
                   <label className="text-sm font-semibold">Senha</label>
-                  {failedAttempts >= 3 && (
-                    <button
-                      type="button"
-                      onClick={() => setIsRecovering(true)}
-                      className="text-xs text-primary hover:underline font-bold"
-                    >
-                      Esqueci minha senha
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsRecovering(true)}
+                    className="text-xs text-primary hover:underline font-semibold"
+                  >
+                    Esqueci minha senha
+                  </button>
                 </div>
                 <div className="relative">
                   <input

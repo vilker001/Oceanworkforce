@@ -1,18 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'placeholder';
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
-if (!(import.meta as any).env?.VITE_SUPABASE_URL || !(import.meta as any).env?.VITE_SUPABASE_ANON_KEY) {
-    console.error('CRITICAL: Missing Supabase environment variables! VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is undefined in the build process. Please check your Vercel Environment Variables.');
+// Check for missing or placeholder credentials
+export const isMissingSupabaseConfig = !supabaseUrl || !supabaseAnonKey ||
+    supabaseUrl === 'https://placeholder.supabase.co' ||
+    supabaseAnonKey === 'placeholder';
+
+if (isMissingSupabaseConfig) {
+    console.error(
+        'CRITICAL: Variáveis de ambiente do Supabase não configuradas!\n' +
+        'Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nas variáveis de ambiente do Vercel.\n' +
+        'Acesse: https://vercel.com > Seu Projeto > Settings > Environment Variables'
+    );
 }
 
-export const supabase = createClient<any>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: false,
-        autoRefreshToken: true,
-    },
-});
+// Use safe fallback URLs so createClient doesn't throw on empty strings
+export const supabase = createClient<any>(
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseAnonKey || 'placeholder',
+    {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: true,
+        },
+    }
+);
 
 // Helper function to get current user
 export async function getCurrentUser() {

@@ -275,7 +275,8 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
           eventClick={handleEventClick}
           eventContent={renderEventContent}
           locale="pt-br"
-          height="100%"
+          height="auto"
+          contentHeight="auto"
           dayMaxEvents={3}
         />
       </div>

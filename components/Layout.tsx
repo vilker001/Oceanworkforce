@@ -46,6 +46,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const navItems = [
     { id: View.DASHBOARD, label: 'Painel', icon: 'dashboard' },
     { id: View.CLIENTS, label: 'Pipeline', icon: 'hub' },
+    { id: View.SERVICE_CATALOG, label: 'Catálogo', icon: 'storefront' },
     { id: View.PROJECTS, label: 'Projetos', icon: 'folder' },
     { id: View.KANBAN, label: 'Tarefas', icon: 'task' },
     { id: View.CALENDAR, label: 'Calendário', icon: 'calendar_today' },

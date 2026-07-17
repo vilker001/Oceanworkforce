@@ -19,6 +19,8 @@ import { Trading } from './components/views/Trading';
 import { Ranking } from './components/views/Ranking';
 import { UserManagement } from './components/views/UserManagement';
 import { Settings } from './components/views/Settings';
+import { ServiceCatalog } from './components/views/ServiceCatalog';
+
 import { DEFAULT_AVATAR } from './constants';
 import { supabase } from './src/lib/supabase';
 import { useTasks } from './src/hooks/useTasks';
@@ -464,6 +466,8 @@ const App: React.FC = () => {
         return <UserManagement />;
       case View.SETTINGS:
         return <Settings currentUser={user} />;
+      case View.SERVICE_CATALOG:
+        return <ServiceCatalog currentUser={user} />;
       default:
         return <Dashboard />;
     }

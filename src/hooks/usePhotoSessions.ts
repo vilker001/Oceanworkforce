@@ -121,5 +121,5 @@ export const usePhotoSessions = () => {
         await fetchCatalog();
     };
 
-    return { sessions, catalog, loading, error, createSession, completeSession, deleteSession, addCatalogItem, deleteCatalogItem, refetch: fetchSessions };
+    return { sessions, catalog, loading, error, createSession, completeSession, deleteSession, addCatalogItem, deleteCatalogItem, refetch: fetchSessions, refetchCatalog: fetchCatalog };
 };

@@ -1,15 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../../src/lib/supabase';
-import { Client, ClientStatus, User, FollowUp } from '../../types';
+import { Client, ClientStatus, User, FollowUp, ServiceCatalogItem } from '../../types';
 import { useConfirm } from '../ui/ConfirmDialog';
+import { usePhotoSessions } from '../../src/hooks/usePhotoSessions';
 
-const availableServices = [
-  'Gestão de mídia',
-  'Website',
-  'E-commerce',
-  'Automação de redes sociais',
-  'Produção de conteúdo'
-];
+
 
 const provenanceOptions = [
   'Redes Sociais',
@@ -18,6 +13,7 @@ const provenanceOptions = [
   'Recomendação',
   'Outro'
 ];
+
 
 const statusConfig: Record<ClientStatus, { color: string, bg: string }> = {
   'Novo Lead': { color: 'text-gray-600', bg: 'bg-gray-100 dark:bg-zinc-800' },
@@ -42,6 +38,13 @@ interface ClientsProps {
 export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClient, onUpdateClient, onDeleteClient, error }) => {
   const allTeamMembers = Array.from(new Map([...team, { name: user.name, avatar: user.avatar }].map(m => [m.name, m])).values());
   const { confirm } = useConfirm();
+  const { catalog: serviceCatalog } = usePhotoSessions();
+
+  // Only Ocean Group services from catalog
+  const catalogServices = useMemo(() => 
+    serviceCatalog.filter(i => i.catalog_type === 'Ocean Group'),
+    [serviceCatalog]
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -52,23 +55,31 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkMode, setIsBulkMode] = useState(false);
 
-  // Form State
+  // Form State — businessValue removed: now auto-calculated from selected services
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     companyPhone: '',
     companyName: '',
-    businessValue: '',
     nextFollowUpDate: '',
     internalContact: '',
     internalContactPhone: '',
     internalContactRole: '',
     responsible: '',
-    services: [] as string[],
+    selectedCatalogItems: [] as ServiceCatalogItem[], // replaces plain string services
     location: 'Maputo Cidade' as Client['location'],
     provenance: 'Outro' as Client['provenance']
   });
+
+  // Auto-calculated business value from selected catalog items
+  const calculatedBusinessValue = useMemo(() =>
+    formData.selectedCatalogItems.reduce((sum, item) => sum + item.price_mt, 0),
+    [formData.selectedCatalogItems]
+  );
+
+  const [formError, setFormError] = useState('');
+
 
   // Follow Ups States
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -124,12 +135,12 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
     });
   }, [clients, filterStatus, searchQuery]);
 
-  const toggleService = (service: string) => {
+  const toggleCatalogService = (item: ServiceCatalogItem) => {
     setFormData(prev => ({
       ...prev,
-      services: prev.services.includes(service)
-        ? prev.services.filter(s => s !== service)
-        : [...prev.services, service]
+      selectedCatalogItems: prev.selectedCatalogItems.some(s => s.id === item.id)
+        ? prev.selectedCatalogItems.filter(s => s.id !== item.id)
+        : [...prev.selectedCatalogItems, item]
     }));
   };
 
@@ -305,19 +316,41 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+
+    // Validate: at least one service required
+    if (formData.selectedCatalogItems.length === 0) {
+      setFormError('Seleccione pelo menos um serviço do catálogo.');
+      return;
+    }
+
+    // Duplicate check: same email or same phone
+    const emailExists = clients.some(c => c.email.toLowerCase() === formData.email.toLowerCase().trim());
+    if (emailExists) {
+      setFormError(`Já existe um lead com o email "${formData.email}". Verifique o pipeline.`);
+      return;
+    }
+    if (formData.phone.trim()) {
+      const phoneExists = clients.some(c => c.phone && c.phone.replace(/\s/g, '') === formData.phone.replace(/\s/g, ''));
+      if (phoneExists) {
+        setFormError(`Já existe um lead com o telefone "${formData.phone}". Verifique o pipeline.`);
+        return;
+      }
+    }
+
     const newClient: Omit<Client, 'id'> = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone || undefined,
       companyPhone: formData.companyPhone || undefined,
       companyName: formData.companyName || undefined,
-      businessValue: formData.businessValue ? parseFloat(formData.businessValue) : undefined,
+      businessValue: calculatedBusinessValue > 0 ? calculatedBusinessValue : undefined,
       nextFollowUpDate: formData.nextFollowUpDate || undefined,
       status: 'Novo Lead',
       responsible: formData.responsible || '',
       lastActivity: 'Lead Registrado',
       initials: formData.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2),
-      services: formData.services,
+      services: formData.selectedCatalogItems.map(i => i.name),
       location: formData.location,
       provenance: formData.provenance
     };
@@ -327,9 +360,10 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       setIsModalOpen(false);
       resetForm();
     } catch (err) {
-      alert('Erro ao cadastrar lead.');
+      setFormError('Erro ao cadastrar lead. Tente novamente.');
     }
   };
+
 
   const handleAddFollowUp = async () => {
     if (!selectedClient || !newFollowUpNotes) return;
@@ -400,16 +434,16 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       phone: '',
       companyPhone: '',
       companyName: '',
-      businessValue: '',
       nextFollowUpDate: '',
       internalContact: '',
       internalContactPhone: '',
       internalContactRole: '',
       responsible: '',
-      services: [],
+      selectedCatalogItems: [],
       location: 'Maputo Cidade',
       provenance: 'Outro'
     });
+    setFormError('');
   };
 
   return (
@@ -640,15 +674,23 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       {/* MODAL NOVO CLIENTE */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={() => { setIsModalOpen(false); resetForm(); }}></div>
           <form
             onSubmit={handleSubmit}
             className="relative bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl shadow-2xl p-8 flex flex-col gap-6 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-2xl font-black tracking-tight">Novo Prospecto comercial</h3>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="material-symbols-outlined text-text-sub hover:text-red-500 transition-colors">close</button>
+              <button type="button" onClick={() => { setIsModalOpen(false); resetForm(); }} className="material-symbols-outlined text-text-sub hover:text-red-500 transition-colors">close</button>
             </div>
+
+            {/* Error Banner */}
+            {formError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">error</span>
+                {formError}
+              </div>
+            )}
 
             <div className="space-y-4">
               <h4 className="text-[10px] font-black uppercase text-primary tracking-widest border-b pb-2">Identificação do Lead</h4>
@@ -667,43 +709,86 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-text-sub uppercase">Email de Contacto *</label>
-                  <input required type="email" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="contacto@empresa.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                  <input required type="email" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="contacto@empresa.com" value={formData.email} onChange={e => { setFormData({ ...formData, email: e.target.value }); setFormError(''); }} />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-text-sub uppercase">WhatsApp / Telefone</label>
-                  <input className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="+258 84 XXX XXXX" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                  <input className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="+258 84 XXX XXXX" value={formData.phone} onChange={e => { setFormData({ ...formData, phone: e.target.value }); setFormError(''); }} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-text-sub uppercase font-black">Valor Estimado do Negócio (MT)</label>
-                  <input type="number" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Valor em Meticais" value={formData.businessValue} onChange={e => setFormData({ ...formData, businessValue: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-text-sub uppercase">Primeiro Follow-Up (Opcional)</label>
-                  <input type="date" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" value={formData.nextFollowUpDate} onChange={e => setFormData({ ...formData, nextFollowUpDate: e.target.value })} />
-                </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-sub uppercase">Primeiro Follow-Up (Opcional)</label>
+                <input type="date" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" value={formData.nextFollowUpDate} onChange={e => setFormData({ ...formData, nextFollowUpDate: e.target.value })} />
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase text-primary tracking-widest border-b pb-2">Serviços e Distribuição</h4>
-              <div className="flex flex-wrap gap-2">
-                {availableServices.map(service => (
-                  <button
-                    key={service}
-                    type="button"
-                    onClick={() => toggleService(service)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border-2 ${formData.services.includes(service)
-                      ? 'bg-primary border-primary text-white shadow-sm'
-                      : 'bg-gray-50 dark:bg-zinc-800 border-transparent text-text-sub'
-                      }`}
-                  >
-                    {service}
-                  </button>
-                ))}
+            {/* SERVIÇOS DO CATÁLOGO */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h4 className="text-[10px] font-black uppercase text-primary tracking-widest">Serviços de Interesse *</h4>
+                <span className="text-[10px] text-text-sub">Seleccione os serviços pretendidos</span>
               </div>
+
+              {catalogServices.length === 0 ? (
+                <div className="text-xs text-text-sub italic bg-gray-50 dark:bg-zinc-800 rounded-xl p-3">
+                  Catálogo vazio. O Gestor de Projetos deve adicionar serviços primeiro.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {catalogServices.map(item => {
+                    const isSelected = formData.selectedCatalogItems.some(s => s.id === item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => { toggleCatalogService(item); setFormError(''); }}
+                        className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                          isSelected
+                            ? 'bg-primary/10 border-primary text-primary'
+                            : 'bg-gray-50 dark:bg-zinc-800 border-transparent hover:border-gray-200 dark:hover:border-zinc-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`size-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                            isSelected ? 'bg-primary border-primary' : 'border-gray-300 dark:border-zinc-600'
+                          }`}>
+                            {isSelected && <span className="material-symbols-outlined text-white text-xs">check</span>}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold">{item.name}</p>
+                            {item.description && <p className="text-[10px] text-text-sub">{item.description}</p>}
+                          </div>
+                        </div>
+                        <span className={`text-sm font-black whitespace-nowrap ml-4 ${
+                          isSelected ? 'text-primary' : 'text-text-sub'
+                        }`}>
+                          MT {item.price_mt.toLocaleString('pt-MZ')}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Valor total calculado */}
+              {formData.selectedCatalogItems.length > 0 && (
+                <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-green-600 text-sm">calculate</span>
+                    <span className="text-xs font-bold text-green-700 dark:text-green-400">
+                      Valor Estimado Total ({formData.selectedCatalogItems.length} serviço{formData.selectedCatalogItems.length > 1 ? 's' : ''})
+                    </span>
+                  </div>
+                  <span className="text-lg font-black text-green-700 dark:text-green-400">
+                    MT {calculatedBusinessValue.toLocaleString('pt-MZ')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase text-primary tracking-widest border-b pb-2">Localização e Origem</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-text-sub uppercase">Localização</label>
@@ -729,8 +814,15 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
               </div>
             </div>
 
-            <button type="submit" className="w-full py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:scale-[1.01] transition-all">
-              Guardar Lead no Pipeline
+            <button
+              type="submit"
+              disabled={formData.selectedCatalogItems.length === 0}
+              className="w-full py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:scale-[1.01] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              {formData.selectedCatalogItems.length === 0
+                ? 'Seleccione pelo menos 1 serviço'
+                : `Guardar Lead — MT ${calculatedBusinessValue.toLocaleString('pt-MZ')}`
+              }
             </button>
           </form>
         </div>

@@ -9,6 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fullcalendar/core": "^6.1.21",
+    "@fullcalendar/daygrid": "^6.1.21",
+    "@fullcalendar/interaction": "^6.1.21",
+    "@fullcalendar/multimonth": "^6.1.21",
+    "@fullcalendar/react": "^6.1.21",
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/supabase-js": "^2.90.1",
     "react": "^19.2.3",

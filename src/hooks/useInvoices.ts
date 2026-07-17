@@ -15,12 +15,15 @@ export const useInvoices = () => {
                 .from('invoices')
                 .select(`
                     *,
-                    client:clients(name),
-                    issuer:users(name)
+                    client:clients(name)
                 `)
                 .order('created_at', { ascending: false });
 
             if (fetchError) throw fetchError;
+
+            // Fetch users separately to map emitido_por to names (avoids foreign key issues)
+            const { data: usersData } = await supabase.from('users').select('id, name');
+            const userMap = new Map(usersData?.map(u => [u.id, u.name]) || []);
 
             const transformedInvoices: Invoice[] = (data || []).map((inv: any) => ({
                 id: inv.id,
@@ -28,7 +31,7 @@ export const useInvoices = () => {
                 client_id: inv.client_id,
                 client_name: inv.client?.name || 'Cliente Desconhecido',
                 emitido_por: inv.emitido_por,
-                emitido_por_nome: inv.issuer?.name || 'Utilizador Desconhecido',
+                emitido_por_nome: userMap.get(inv.emitido_por) || 'Utilizador Desconhecido',
                 data_emissao: inv.data_emissao,
                 subtotal: parseFloat(inv.subtotal),
                 iva: parseFloat(inv.iva),

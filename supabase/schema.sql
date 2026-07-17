@@ -278,3 +278,110 @@ LEFT JOIN users u ON c.responsible_id = u.id;
 -- 1. Copy your Supabase URL and anon key to .env.local
 -- 2. Test the connection by running the app
 -- 3. Create your first user via the onboarding flow
+
+-- =====================================================
+-- 9. INVOICING MODULE
+-- =====================================================
+
+-- Add NUIT to clients
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS nuit TEXT;
+
+-- 9.1 COMPANY PROFILE
+CREATE TABLE IF NOT EXISTS company_profile (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT NOT NULL,
+  nuit TEXT NOT NULL,
+  contacto TEXT NOT NULL,
+  endereco TEXT NOT NULL,
+  instagram TEXT,
+  logo_url TEXT,
+  forma_pagamento_titulo TEXT,
+  banco TEXT,
+  nib TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE company_profile ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can read company profile" ON company_profile FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Managers can update company profile" ON company_profile FOR ALL USING (
+  EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('Gestor de Projectos'))
+);
+
+-- 9.2 INVOICES
+CREATE TABLE IF NOT EXISTS invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo TEXT UNIQUE NOT NULL,
+  client_id UUID REFERENCES clients(id) ON DELETE RESTRICT NOT NULL,
+  emitido_por UUID REFERENCES users(id) ON DELETE SET NULL,
+  data_emissao DATE DEFAULT CURRENT_DATE,
+  subtotal DECIMAL(12, 2) NOT NULL,
+  iva DECIMAL(12, 2) NOT NULL,
+  total DECIMAL(12, 2) NOT NULL,
+  estado TEXT NOT NULL DEFAULT 'emitida' CHECK (estado IN ('emitida', 'paga', 'anulada')),
+  pdf_url TEXT,
+  forma_pagamento TEXT,
+  validade_dias INT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can read invoices" ON invoices FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can create invoices" ON invoices FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Managers can update invoices" ON invoices FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('Gestor de Projectos'))
+);
+
+-- 9.3 INVOICE ITEMS
+CREATE TABLE IF NOT EXISTS invoice_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE NOT NULL,
+  descricao TEXT NOT NULL,
+  quantidade DECIMAL(10, 2) DEFAULT 1 NOT NULL,
+  preco_unitario DECIMAL(12, 2) NOT NULL,
+  total_linha DECIMAL(12, 2) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE invoice_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can read invoice items" ON invoice_items FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can create invoice items" ON invoice_items FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- 9.4 INVOICE SEQUENCE
+CREATE TABLE IF NOT EXISTS invoice_sequence (
+  ano INT PRIMARY KEY,
+  ultimo_numero INT DEFAULT 0
+);
+
+-- Trigger for updated_at
+CREATE TRIGGER update_company_profile_updated_at BEFORE UPDATE ON company_profile
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON invoices
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- RPC FUNCTION TO GENERATE CODE
+CREATE OR REPLACE FUNCTION gerar_codigo_factura()
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_ano INT;
+  v_ultimo_numero INT;
+  v_codigo TEXT;
+BEGIN
+  v_ano := extract(year from current_date);
+  
+  INSERT INTO invoice_sequence (ano, ultimo_numero)
+  VALUES (v_ano, 1)
+  ON CONFLICT (ano) DO UPDATE
+  SET ultimo_numero = invoice_sequence.ultimo_numero + 1
+  RETURNING ultimo_numero INTO v_ultimo_numero;
+
+  v_codigo := 'FT' || v_ano || '/' || LPAD(v_ultimo_numero::TEXT, 4, '0');
+  
+  RETURN v_codigo;
+END;
+$$;
+

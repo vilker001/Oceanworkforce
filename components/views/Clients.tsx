@@ -62,6 +62,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
     phone: '',
     companyPhone: '',
     companyName: '',
+    nuit: '',
     nextFollowUpDate: '',
     internalContact: '',
     internalContactPhone: '',
@@ -336,6 +337,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       phone: formData.phone || undefined,
       companyPhone: formData.companyPhone || undefined,
       companyName: formData.companyName || undefined,
+      nuit: formData.nuit || undefined,
       businessValue: calculatedBusinessValue > 0 ? calculatedBusinessValue : undefined,
       nextFollowUpDate: formData.nextFollowUpDate || undefined,
       status: 'Novo Lead',
@@ -435,6 +437,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       phone: '',
       companyPhone: '',
       companyName: '',
+      nuit: '',
       nextFollowUpDate: '',
       internalContact: '',
       internalContactPhone: '',
@@ -709,6 +712,11 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                 </div>
               </div>
 
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-sub uppercase">NUIT (Opcional)</label>
+                <input className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Ex: 400123456" value={formData.nuit} onChange={e => setFormData({ ...formData, nuit: e.target.value })} />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-text-sub uppercase">Email de Contacto *</label>
@@ -881,6 +889,10 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                 <div className="p-4 bg-gray-50 dark:bg-zinc-800/40 rounded-2xl border border-gray-100/50 dark:border-zinc-800/30">
                   <p className="text-[10px] font-bold text-text-sub uppercase mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-sm">phone</span> Telefone</p>
                   <p className="text-xs font-bold">{selectedClient.phone || 'Não registado'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-zinc-800/40 rounded-2xl border border-gray-100/50 dark:border-zinc-800/30">
+                  <p className="text-[10px] font-bold text-text-sub uppercase mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-sm">badge</span> NUIT</p>
+                  <p className="text-xs font-bold">{selectedClient.nuit || 'Não registado'}</p>
                 </div>
                 <div className="p-4 bg-gray-50 dark:bg-zinc-800/40 rounded-2xl border border-gray-100/50 dark:border-zinc-800/30">
                   <p className="text-[10px] font-bold text-text-sub uppercase mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-sm">location_on</span> Região</p>

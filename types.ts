@@ -15,6 +15,8 @@ export enum View {
   RANKING = 'RANKING',
   USER_MANAGEMENT = 'USER_MANAGEMENT',
   SERVICE_CATALOG = 'SERVICE_CATALOG',
+  INVOICE_NEW = 'INVOICE_NEW',
+  INVOICE_HISTORY = 'INVOICE_HISTORY',
 }
 
 export type UserRole =
@@ -95,6 +97,7 @@ export interface Client {
   lastActivity: string;
   initials: string;
   nextFollowUpDate?: string;
+  nuit?: string;
 }
 
 export interface FollowUp {
@@ -290,6 +293,48 @@ export interface UserKpi {
   user_id: string;
   kpi_name: string;
   target_score: number;
-  actual_score: number;
   last_updated: string;
+}
+
+// ========================
+// INVOICING
+// ========================
+export interface CompanyProfile {
+  id: string;
+  nome: string;
+  nuit: string;
+  contacto: string;
+  endereco: string;
+  instagram?: string;
+  logo_url?: string;
+  forma_pagamento_titulo?: string;
+  banco?: string;
+  nib?: string;
+}
+
+export interface InvoiceItem {
+  id?: string;
+  invoice_id?: string;
+  descricao: string;
+  quantidade: number;
+  preco_unitario: number;
+  total_linha: number;
+}
+
+export interface Invoice {
+  id: string;
+  codigo: string;
+  client_id: string;
+  client_name?: string; // from join
+  emitido_por: string;
+  data_emissao: string;
+  subtotal: number;
+  iva: number;
+  total: number;
+  estado: 'emitida' | 'paga' | 'anulada';
+  pdf_url?: string;
+  forma_pagamento?: string;
+  validade_dias?: number;
+  created_at?: string;
+  items?: InvoiceItem[];
 }

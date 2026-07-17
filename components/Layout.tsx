@@ -55,6 +55,7 @@ export const Layout: React.FC<LayoutProps> = ({
       { id: View.PHOTO_SESSIONS, label: 'Sessões BMS', icon: 'photo_camera' }
     ] : []),
     ...(isAnyManager ? [
+      { id: View.INVOICE_HISTORY, label: 'Facturação', icon: 'receipt_long' },
       { id: View.TRADING, label: 'Trading', icon: 'candlestick_chart' },
       { id: View.TEAM, label: 'Equipe', icon: 'groups' }
     ] : []),

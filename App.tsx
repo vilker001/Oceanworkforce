@@ -20,6 +20,9 @@ import { Ranking } from './components/views/Ranking';
 import { UserManagement } from './components/views/UserManagement';
 import { Settings } from './components/views/Settings';
 import { ServiceCatalog } from './components/views/ServiceCatalog';
+import { InvoiceNew } from './components/views/InvoiceNew';
+import { InvoiceHistory } from './components/views/InvoiceHistory';
+
 
 import { DEFAULT_AVATAR } from './constants';
 import { supabase } from './src/lib/supabase';
@@ -468,8 +471,13 @@ const App: React.FC = () => {
         return <Settings currentUser={user} />;
       case View.SERVICE_CATALOG:
         return <ServiceCatalog currentUser={user} />;
+      case View.INVOICE_NEW:
+        return <InvoiceNew user={user} onNavigate={setCurrentView} />;
+      case View.INVOICE_HISTORY:
+        return <InvoiceHistory user={user} onNavigate={setCurrentView} />;
       default:
         return <Dashboard />;
+
     }
   };
 

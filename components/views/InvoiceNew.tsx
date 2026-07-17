@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User, Client, InvoiceItem } from '../../types';
 import { useClients } from '../../src/hooks/useClients';
 import { useInvoices } from '../../src/hooks/useInvoices';
+import { usePhotoSessions } from '../../src/hooks/usePhotoSessions';
 import { pdf } from '@react-pdf/renderer';
 import { InvoicePDF } from './InvoicePDF';
 import { supabase } from '../../src/lib/supabase';
@@ -13,17 +14,28 @@ interface InvoiceNewProps {
 }
 
 export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
-  const { clients } = useClients();
+  const { clients, updateClient } = useClients();
   const { companyProfile, createInvoice, updateInvoiceUrl } = useInvoices();
+  const { catalog } = usePhotoSessions();
+
+  const oceanServices = useMemo(() => catalog.filter(i => i.catalog_type === 'Ocean Group'), [catalog]);
 
   const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [clientNuitInput, setClientNuitInput] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([{ descricao: '', quantidade: 1, preco_unitario: 0, total_linha: 0 }]);
   const [formaPagamento, setFormaPagamento] = useState('');
-  const [validadeDias, setValidadeDias] = useState<number>(30);
+  const [validadeDias, setValidadeDias] = useState<number | ''>(30);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const selectedClient = useMemo(() => clients.find(c => c.id === selectedClientId), [clients, selectedClientId]);
+
+  // When client changes, reset the NUIT input if they don't have one
+  useEffect(() => {
+    if (selectedClient && !selectedClient.nuit) {
+      setClientNuitInput('');
+    }
+  }, [selectedClient]);
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.total_linha, 0), [items]);
   const iva = useMemo(() => subtotal * 0.16, [subtotal]);
@@ -32,7 +44,16 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
   const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...items];
     const item = { ...newItems[index], [field]: value };
-    if (field === 'quantidade' || field === 'preco_unitario') {
+    
+    // If selecting from catalog, auto-fill price
+    if (field === 'descricao') {
+      const selectedService = oceanServices.find(s => s.name === value);
+      if (selectedService) {
+        item.preco_unitario = selectedService.price_mt;
+      }
+    }
+
+    if (field === 'quantidade' || field === 'preco_unitario' || field === 'descricao') {
       item.total_linha = Number(item.quantidade) * Number(item.preco_unitario);
     }
     newItems[index] = item;
@@ -52,6 +73,13 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
       setError('Seleccione um cliente.');
       return;
     }
+    
+    // Validate NUIT input if client doesn't have one
+    if (!selectedClient.nuit && !clientNuitInput.trim()) {
+      setError('Por favor, informe o NUIT do cliente para emitir a factura.');
+      return;
+    }
+
     if (items.some(i => !i.descricao || i.quantidade <= 0 || i.preco_unitario <= 0)) {
       setError('Preencha correctamente todos os itens da factura.');
       return;
@@ -65,6 +93,11 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
     setError('');
 
     try {
+      // 0. Update Client NUIT if it was missing
+      if (!selectedClient.nuit && clientNuitInput.trim()) {
+        await updateClient(selectedClient.id, { nuit: clientNuitInput.trim() });
+        selectedClient.nuit = clientNuitInput.trim();
+      }
       const invoiceData = {
         client_id: selectedClient.id,
         emitido_por: user.id || '',
@@ -72,7 +105,7 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
         iva,
         total,
         forma_pagamento: formaPagamento,
-        validade_dias: validadeDias
+        validade_dias: validadeDias === '' ? undefined : validadeDias
       };
 
       // 1. Create Invoice in DB
@@ -174,7 +207,21 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
                 <p className="font-bold">{selectedClient.name}</p>
                 <p className="text-text-sub">{selectedClient.location}</p>
                 <p className="text-text-sub">{selectedClient.email} / {selectedClient.phone}</p>
-                {selectedClient.nuit && <p className="font-bold">NUIT: {selectedClient.nuit}</p>}
+                {selectedClient.nuit ? (
+                  <p className="font-bold text-green-700 dark:text-green-500">NUIT: {selectedClient.nuit}</p>
+                ) : (
+                  <div className="mt-2 flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-red-600 uppercase">Preencha o NUIT do cliente *</label>
+                    <input
+                      type="text"
+                      required
+                      value={clientNuitInput}
+                      onChange={e => setClientNuitInput(e.target.value)}
+                      placeholder="Ex: 400123456"
+                      className="bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-900/50 rounded-lg p-2 outline-none focus:ring-2 focus:ring-red-500 text-sm"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -188,15 +235,29 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
             {items.map((item, index) => (
               <div key={index} className="flex gap-4 items-start">
                 <div className="flex-1">
-                  <label className="text-[10px] font-bold text-text-sub uppercase mb-1 block">Descrição</label>
-                  <input
-                    type="text"
-                    required
-                    value={item.descricao}
-                    onChange={e => handleItemChange(index, 'descricao', e.target.value)}
-                    className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm outline-none"
-                    placeholder="Ex: Website Informativo"
-                  />
+                  <label className="text-[10px] font-bold text-text-sub uppercase mb-1 block">Serviço / Descrição</label>
+                  {oceanServices.length > 0 ? (
+                    <select
+                      required
+                      value={item.descricao}
+                      onChange={e => handleItemChange(index, 'descricao', e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm outline-none"
+                    >
+                      <option value="">Seleccione um serviço...</option>
+                      {oceanServices.map(s => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={item.descricao}
+                      onChange={e => handleItemChange(index, 'descricao', e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm outline-none"
+                      placeholder="Ex: Website Informativo"
+                    />
+                  )}
                 </div>
                 <div className="w-24">
                   <label className="text-[10px] font-bold text-text-sub uppercase mb-1 block">Qtd</label>
@@ -265,11 +326,11 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-sub uppercase">Validade (Dias)</label>
+              <label className="text-[10px] font-bold text-text-sub uppercase">Validade (Dias) - Opcional</label>
               <input
                 type="number"
                 value={validadeDias}
-                onChange={e => setValidadeDias(Number(e.target.value))}
+                onChange={e => setValidadeDias(e.target.value === '' ? '' : Number(e.target.value))}
                 className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm outline-none"
               />
             </div>

@@ -15,7 +15,8 @@ export const useInvoices = () => {
                 .from('invoices')
                 .select(`
                     *,
-                    client:clients(name)
+                    client:clients(name),
+                    issuer:users(name)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -27,6 +28,7 @@ export const useInvoices = () => {
                 client_id: inv.client_id,
                 client_name: inv.client?.name || 'Cliente Desconhecido',
                 emitido_por: inv.emitido_por,
+                emitido_por_nome: inv.issuer?.name || 'Utilizador Desconhecido',
                 data_emissao: inv.data_emissao,
                 subtotal: parseFloat(inv.subtotal),
                 iva: parseFloat(inv.iva),
@@ -165,6 +167,21 @@ export const useInvoices = () => {
         }
     };
 
+    const updateInvoiceStatus = async (id: string, estado: 'emitida' | 'paga' | 'anulada') => {
+        try {
+            const { error: updateError } = await supabase
+                .from('invoices')
+                .update({ estado })
+                .eq('id', id);
+
+            if (updateError) throw updateError;
+            await fetchInvoices();
+        } catch (err: any) {
+            console.error('Error updating invoice status:', err);
+            throw err;
+        }
+    };
+
     return {
         invoices,
         companyProfile,
@@ -173,6 +190,7 @@ export const useInvoices = () => {
         createInvoice,
         updateInvoiceUrl,
         cancelInvoice,
+        updateInvoiceStatus,
         refetch: fetchInvoices
     };
 };

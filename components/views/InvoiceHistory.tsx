@@ -8,7 +8,7 @@ interface InvoiceHistoryProps {
 }
 
 export const InvoiceHistory: React.FC<InvoiceHistoryProps> = ({ user, onNavigate }) => {
-  const { invoices, loading, error, cancelInvoice } = useInvoices();
+  const { invoices, loading, error, cancelInvoice, updateInvoiceStatus } = useInvoices();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todas' | 'emitida' | 'paga' | 'anulada'>('Todas');
 
@@ -24,8 +24,14 @@ export const InvoiceHistory: React.FC<InvoiceHistoryProps> = ({ user, onNavigate
   const handleCancel = async (id: string, codigo: string) => {
     const ok = window.confirm(`Tem a certeza que deseja ANULAR a factura ${codigo}? Esta ação não pode ser desfeita.`);
     if (ok) {
-      await cancelInvoice(id);
+      await updateInvoiceStatus(id, 'anulada');
     }
+  };
+
+  const toggleStatus = async (id: string, currentState: string) => {
+    if (currentState === 'anulada') return;
+    const newState = currentState === 'emitida' ? 'paga' : 'emitida';
+    await updateInvoiceStatus(id, newState);
   };
 
   const handleDownload = (url: string) => {
@@ -95,7 +101,7 @@ export const InvoiceHistory: React.FC<InvoiceHistoryProps> = ({ user, onNavigate
             <thead className="bg-gray-50/50 dark:bg-zinc-800/50 border-b border-gray-100 dark:border-zinc-800">
               <tr className="text-[10px] uppercase font-bold text-text-sub tracking-widest">
                 <th className="px-6 py-4">Código</th>
-                <th className="px-6 py-4">Cliente</th>
+                <th className="px-6 py-4">Cliente / Emitente</th>
                 <th className="px-6 py-4">Data Emissão</th>
                 <th className="px-6 py-4">Total (MT)</th>
                 <th className="px-6 py-4">Estado</th>
@@ -118,17 +124,25 @@ export const InvoiceHistory: React.FC<InvoiceHistoryProps> = ({ user, onNavigate
                 filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/30 transition-colors">
                     <td className="px-6 py-4 font-black text-sm">{inv.codigo}</td>
-                    <td className="px-6 py-4 font-bold text-sm text-text-sub">{inv.client_name}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-sm text-text-sub">{inv.client_name}</div>
+                      <div className="text-[10px] text-gray-400 font-bold uppercase mt-1">Emitida por: {inv.emitido_por_nome}</div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-text-sub">{new Date(inv.data_emissao).toLocaleDateString('pt-MZ')}</td>
                     <td className="px-6 py-4 font-black text-primary">MT {inv.total.toLocaleString('pt-MZ', { minimumFractionDigits: 2 })}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                        inv.estado === 'emitida' ? 'bg-blue-100 text-blue-700' :
-                        inv.estado === 'paga' ? 'bg-green-100 text-green-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
+                      <button 
+                        onClick={() => toggleStatus(inv.id, inv.estado)}
+                        disabled={inv.estado === 'anulada'}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors ${
+                          inv.estado === 'emitida' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                          inv.estado === 'paga' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                          'bg-red-100 text-red-700 cursor-not-allowed'
+                        }`}
+                        title={inv.estado !== 'anulada' ? "Clique para mudar estado" : ""}
+                      >
                         {inv.estado}
-                      </span>
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">

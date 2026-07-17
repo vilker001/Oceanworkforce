@@ -327,6 +327,7 @@ export interface Invoice {
   client_id: string;
   client_name?: string; // from join
   emitido_por: string;
+  emitido_por_nome?: string; // from join
   data_emissao: string;
   subtotal: number;
   iva: number;

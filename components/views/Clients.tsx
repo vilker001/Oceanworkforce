@@ -211,14 +211,6 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   };
 
   const handleOpenDetails = (client: Client) => {
-    const isManager = ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role);
-    const isResponsible = client.responsible === user.name;
-
-    if (!isManager && !isResponsible && client.responsible) {
-      alert('Apenas gestores ou o responsável pelo lead podem ver os detalhes completos.');
-      return;
-    }
-
     setSelectedClient(client);
     setIsDetailModalOpen(true);
   };
@@ -367,9 +359,18 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
   const handleAddFollowUp = async () => {
     if (!selectedClient || !newFollowUpNotes) return;
+    const isManager = ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role);
+    const isResponsible = selectedClient.responsible === user.name;
+    
+    if (!isManager && !isResponsible) {
+      alert('Apenas o gestor ou o responsável pelo lead podem adicionar follow-ups.');
+      return;
+    }
+
     setSavingFollowUp(true);
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
+
       
       let nextDate = newFollowUpNextDate;
       if (!nextDate) {
@@ -608,19 +609,21 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                         {client.status}
                       </span>
                       {/* Quick Change Dropdown on Hover */}
-                      <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all z-20">
-                        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl p-2 flex flex-col gap-1 min-w-[160px]">
-                          {(Object.keys(statusConfig) as ClientStatus[]).map(st => (
-                            <button
-                              key={st}
-                              onClick={() => updateClientStatus(client.id, st)}
-                              className={`text-[10px] font-bold text-left px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 ${client.status === st ? 'text-primary' : 'text-text-sub'}`}
-                            >
-                              Mudar para {st}
-                            </button>
-                          ))}
+                      {(['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role) || client.responsible === user.name) && (
+                        <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all z-20">
+                          <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl p-2 flex flex-col gap-1 min-w-[160px]">
+                            {(Object.keys(statusConfig) as ClientStatus[]).map(st => (
+                              <button
+                                key={st}
+                                onClick={() => updateClientStatus(client.id, st)}
+                                className={`text-[10px] font-bold text-left px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 ${client.status === st ? 'text-primary' : 'text-text-sub'}`}
+                              >
+                                Mudar para {st}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-xs font-bold text-text-sub">
@@ -829,7 +832,10 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       )}
 
       {/* MODAL DETALHES DO LEAD & HISTÓRICO DE FOLLOW-UP */}
-      {isDetailModalOpen && selectedClient && (
+      {isDetailModalOpen && selectedClient && (() => {
+        const canEditCurrentClient = ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role) || selectedClient.responsible === user.name;
+        
+        return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={() => setIsDetailModalOpen(false)}></div>
 
@@ -847,6 +853,13 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                   </div>
                 </div>
               </div>
+
+              {!canEditCurrentClient && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">visibility</span>
+                  Modo de Visualização - Apenas o responsável pode editar.
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2">
                 <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black uppercase ${statusConfig[selectedClient.status].color} ${statusConfig[selectedClient.status].bg}`}>
@@ -896,13 +909,15 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                 >
                   Fechar
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteLead(selectedClient.id)}
-                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/10"
-                >
-                  <span className="material-symbols-outlined text-base">delete</span> Eliminar Lead
-                </button>
+                {canEditCurrentClient && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteLead(selectedClient.id)}
+                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/10"
+                  >
+                    <span className="material-symbols-outlined text-base">delete</span> Eliminar Lead
+                  </button>
+                )}
               </div>
             </div>
 
@@ -914,8 +929,9 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
               </h3>
 
               {/* Form to add a new follow up */}
-              <div className="bg-gray-50 dark:bg-zinc-850 p-4 rounded-3xl border border-gray-100 dark:border-zinc-800 space-y-4">
-                <p className="text-[10px] font-black uppercase text-text-sub">Registar Nova Atividade</p>
+              {canEditCurrentClient && (
+                <div className="bg-gray-50 dark:bg-zinc-850 p-4 rounded-3xl border border-gray-100 dark:border-zinc-800 space-y-4">
+                  <p className="text-[10px] font-black uppercase text-text-sub">Registar Nova Atividade</p>
                 
                 <div className="flex flex-col gap-1">
                   <label className="text-[9px] font-bold text-text-sub uppercase">Notas do Relatório</label>
@@ -969,8 +985,9 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                   {savingFollowUp ? 'A guardar...' : 'Registar Follow-Up'}
                 </button>
               </div>
+              )}
 
-              {/* Follow ups history list */}
+              {/* Follow-ups List */}
               <div className="flex-1 flex flex-col overflow-hidden max-h-[300px]">
                 <p className="text-[10px] font-black uppercase text-text-sub mb-3">Histórico de Atividades</p>
                 {loadingFollowUps ? (
@@ -1004,7 +1021,9 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
+

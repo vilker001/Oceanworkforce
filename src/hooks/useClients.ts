@@ -72,11 +72,67 @@ export const useClients = () => {
 
             setClients(transformedClients);
             setError(null);
+            
+            // Auto-create follow-up tasks in background
+            if (transformedClients.length > 0) {
+                checkAndCreateFollowUpTasks(transformedClients);
+            }
+
         } catch (err: any) {
             console.error('Error fetching clients:', err);
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const checkAndCreateFollowUpTasks = async (clientsData: Client[]) => {
+        const today = new Date().toISOString().split('T')[0];
+        const clientsToFollowUp = clientsData.filter(c => 
+            c.nextFollowUpDate === today && 
+            !['Convertido', 'Perdido'].includes(c.status)
+        );
+
+        if (clientsToFollowUp.length === 0) return;
+
+        try {
+            // Fetch existing tasks to avoid duplicates
+            const { data: existingTasks } = await supabase
+                .from('tasks')
+                .select('title')
+                .eq('project', 'CRM Follow-Up')
+                .eq('start_date', today);
+            
+            const existingTitles = new Set((existingTasks || []).map((t: any) => t.title));
+
+            for (const client of clientsToFollowUp) {
+                const title = `Follow-Up: ${client.name}`;
+                if (!existingTitles.has(title)) {
+                    // Need to find user ID for client.responsible
+                    let responsibleId = null;
+                    if (client.responsible) {
+                        const { data: user } = await supabase
+                            .from('users')
+                            .select('id')
+                            .eq('name', client.responsible)
+                            .single();
+                        if (user) responsibleId = user.id;
+                    }
+
+                    await supabase.from('tasks').insert({
+                        title,
+                        project: 'CRM Follow-Up',
+                        status: 'ToDo',
+                        priority: 'ALTA',
+                        start_date: today,
+                        due_date: today,
+                        responsible_id: responsibleId,
+                        objectives: []
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Error creating follow-up tasks:', e);
         }
     };
 

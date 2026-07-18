@@ -38,7 +38,16 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
   const [stageDue, setStageDue] = useState('');
   const [stageRelevance, setStageRelevance] = useState('3');
   const [stageObjectivesInput, setStageObjectivesInput] = useState('');
+  const [stageResponsibleId, setStageResponsibleId] = useState('');
   const [savingStage, setSavingStage] = useState(false);
+  const [team, setTeam] = useState<any[]>([]);
+
+  // Fetch team for responsibles
+  useEffect(() => {
+    supabase.from('users').select('id, name').order('name').then(({ data }) => {
+      if (data) setTeam(data);
+    });
+  }, []);
 
   // Report Modal States
   const [showReportModal, setShowReportModal] = useState(false);
@@ -142,7 +151,9 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
         due_date: stageDue,
         status: 'A Fazer',
         relevance: parseInt(stageRelevance),
-        objectives: objectivesList
+        objectives: objectivesList,
+        responsible_id: stageResponsibleId || undefined,
+        delegated_by: currentUser.id
       });
 
       setShowStageModal(false);
@@ -152,6 +163,7 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
       setStageDue('');
       setStageRelevance('3');
       setStageObjectivesInput('');
+      setStageResponsibleId('');
     } catch (e) {
       console.error(e);
       alert('Erro ao criar etapa.');
@@ -414,7 +426,15 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
                           <div>
                             <h4 className="text-sm font-black">{stage.name}</h4>
                             {stage.description && <p className="text-xs text-text-sub mt-0.5">{stage.description}</p>}
-                            <p className="text-[10px] text-text-sub mt-1">Prazo: {formatDate(stage.start_date)} a {formatDate(stage.due_date)} · Relevância: {stage.relevance}/5</p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <p className="text-[10px] text-text-sub">Prazo: {formatDate(stage.start_date)} a {formatDate(stage.due_date)} · Relevância: {stage.relevance}/5</p>
+                              {stage.responsible_name && (
+                                <div className="flex items-center gap-1 text-[10px] text-text-sub bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                                  <span className="material-symbols-outlined text-[12px]">person</span>
+                                  {stage.responsible_name}
+                                </div>
+                              )}
+                            </div>
                           </div>
                           
                           <div className="flex items-center gap-2">
@@ -567,6 +587,15 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
                 <label className="text-xs font-bold text-text-sub uppercase mb-1.5 block">Objetivos (Um por linha)</label>
                 <textarea value={stageObjectivesInput} onChange={e => setStageObjectivesInput(e.target.value)} placeholder="Criar wireframes&#10;Aprovar layout com cliente&#10;Exportar assets" rows={3}
                   className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-text-sub uppercase mb-1.5 block">Responsável</label>
+                <select value={stageResponsibleId} onChange={e => setStageResponsibleId(e.target.value)}
+                  className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+                  <option value="">Sem responsável / Eu mesmo</option>
+                  {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4 justify-end">

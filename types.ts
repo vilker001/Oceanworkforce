@@ -182,6 +182,9 @@ export interface ProjectStage {
   status: 'A Fazer' | 'Em Progresso' | 'Concluido';
   relevance: number;
   completed_at?: string;
+  responsible_id?: string;
+  responsible_name?: string;
+  delegated_by?: string;
 }
 
 export interface Project {

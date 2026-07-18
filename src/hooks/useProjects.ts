@@ -38,6 +38,19 @@ export const useProjects = () => {
                 (clientData || []).forEach((c: any) => { clientMap[c.id] = c.name; });
             }
 
+            // Fetch users for stage responsibles
+            const userIds = new Set<string>();
+            (projectData || []).forEach(p => {
+                (p.project_stages || []).forEach((s: any) => {
+                    if (s.responsible_id) userIds.add(s.responsible_id);
+                });
+            });
+            let userMap: Record<string, string> = {};
+            if (userIds.size > 0) {
+                const { data: userData } = await supabase.from('users').select('id, name').in('id', Array.from(userIds));
+                (userData || []).forEach((u: any) => { userMap[u.id] = u.name; });
+            }
+
             const transformed: Project[] = (projectData || []).map((p: any) => ({
                 id: p.id,
                 name: p.name,
@@ -60,6 +73,9 @@ export const useProjects = () => {
                     status: s.status,
                     relevance: s.relevance,
                     completed_at: s.completed_at,
+                    responsible_id: s.responsible_id,
+                    responsible_name: s.responsible_id ? userMap[s.responsible_id] : undefined,
+                    delegated_by: s.delegated_by,
                 })),
             }));
             setProjects(transformed);
@@ -100,8 +116,34 @@ export const useProjects = () => {
     };
 
     const updateStage = async (id: string, updates: Partial<ProjectStage>) => {
+        // Fetch current stage to check status change for notifications
+        const { data: currentStage } = await supabase
+            .from('project_stages')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        const isCompleting = updates.status === 'Concluido' && currentStage && currentStage.status !== 'Concluido';
+
         const { error: err } = await supabase.from('project_stages').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
         if (err) throw err;
+
+        if (isCompleting && currentStage?.delegated_by && currentStage.delegated_by !== currentStage.responsible_id) {
+            const { data: worker } = await supabase
+                .from('users')
+                .select('name')
+                .eq('id', currentStage.responsible_id)
+                .single();
+
+            await supabase.from('notifications').insert({
+                user_id: currentStage.delegated_by,
+                task_id: id,
+                type: 'task_completed', // reusing task_completed for stages
+                title: `Etapa Concluída: ${currentStage.name}`,
+                description: `O colaborador ${worker?.name || 'responsável'} concluiu a etapa designada.`
+            } as any);
+        }
+
         await fetchProjects();
     };
 

@@ -38,6 +38,7 @@ export interface User {
   birthDate?: string;
   gender?: string;
   must_change_password?: boolean;
+  is_blocked?: boolean;
 }
 
 export interface TaskObjective {

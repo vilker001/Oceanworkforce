@@ -45,7 +45,8 @@ export const UserManagement: React.FC = () => {
         email: u.email,
         role: u.role as UserRole,
         avatar: u.avatar || DEFAULT_AVATAR,
-        must_change_password: u.must_change_password
+        must_change_password: u.must_change_password,
+        is_blocked: u.is_blocked
       })));
     } catch (e) {
       console.error('Erro ao buscar utilizadores:', e);
@@ -137,20 +138,24 @@ export const UserManagement: React.FC = () => {
     });
   };
 
-  const handleBlock = (user: User) => {
+  const handleToggleBlock = (user: User) => {
+    const isBlocking = !user.is_blocked;
     setConfirmDialog({
-      title: 'Bloquear Colaborador',
-      message: `Deseja BLOQUEAR o acesso de ${user.name} ao sistema?`,
-      isDanger: true,
+      title: isBlocking ? 'Bloquear Colaborador' : 'Desbloquear Colaborador',
+      message: isBlocking 
+        ? `Deseja BLOQUEAR o acesso de ${user.name} ao sistema?` 
+        : `Deseja DESBLOQUEAR o acesso de ${user.name}?`,
+      isDanger: isBlocking,
       onConfirm: async () => {
         setConfirmDialog(null);
         try {
-          const { error } = await supabase.rpc('toggle_block_user', { p_user_id: user.id, p_block: true });
+          const { error } = await supabase.rpc('toggle_block_user', { p_user_id: user.id, p_block: isBlocking });
           if (error) throw error;
-          alert(`Acesso de ${user.name} bloqueado.`);
+          alert(`Acesso de ${user.name} ${isBlocking ? 'bloqueado' : 'desbloqueado'}.`);
+          fetchUsers();
         } catch (e: any) {
           console.error(e);
-          alert(`Erro ao bloquear conta: ${e.message}`);
+          alert(`Erro ao ${isBlocking ? 'bloquear' : 'desbloquear'} conta: ${e.message}`);
         }
       }
     });
@@ -214,8 +219,8 @@ export const UserManagement: React.FC = () => {
                         <button onClick={() => openEdit(u)} className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-blue-500" title="Editar Cargo e Perfil">
                           <span className="material-symbols-outlined text-lg">edit</span>
                         </button>
-                        <button onClick={() => handleBlock(u)} className="p-2 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-lg transition-colors text-orange-500" title="Bloquear Acesso">
-                          <span className="material-symbols-outlined text-lg">block</span>
+                        <button onClick={() => handleToggleBlock(u)} className={`p-2 rounded-lg transition-colors ${u.is_blocked ? 'hover:bg-green-100 dark:hover:bg-green-900/30 text-green-500' : 'hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-500'}`} title={u.is_blocked ? "Desbloquear Acesso" : "Bloquear Acesso"}>
+                          <span className="material-symbols-outlined text-lg">{u.is_blocked ? 'lock_open' : 'block'}</span>
                         </button>
                         <button onClick={() => handleDelete(u)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors text-red-500" title="Apagar Conta">
                           <span className="material-symbols-outlined text-lg">delete</span>

@@ -23,7 +23,7 @@ export const UserManagement: React.FC = () => {
     'Gestor Técnico',
     'Gestor de Trading',
     'Fotógrafo',
-    'Promoter de Venda',
+    'Promotor de Venda',
     'Colaborador'
   ];
 

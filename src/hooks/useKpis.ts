@@ -478,7 +478,7 @@ export const useKpis = (userId: string, userRole: UserRole) => {
         case 'Gestor Técnico': results = await calcGestorTecnico(userId, thresholds, manualValues); break;
         case 'Gestor de Trading': results = await calcGestorTrading(userId, thresholds, manualValues); break;
         case 'Fotógrafo': results = await calcFotografo(userId, thresholds, manualValues); break;
-        case 'Promoter de Venda': results = await calcPromoter(userId, thresholds, manualValues); break;
+        case 'Promotor de Venda': results = await calcPromoter(userId, thresholds, manualValues); break;
         default: results = [];
       }
       setKpis(results);

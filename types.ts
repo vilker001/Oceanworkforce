@@ -24,7 +24,7 @@ export type UserRole =
   | 'Gestor Técnico'
   | 'Gestor de Trading'
   | 'Fotógrafo'
-  | 'Promoter de Venda'
+  | 'Promotor de Venda'
   | 'Colaborador';
 
 export interface User {

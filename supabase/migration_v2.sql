@@ -14,7 +14,7 @@ ALTER TABLE public.users ADD CONSTRAINT users_role_check CHECK (role IN (
   'Gestor Técnico',
   'Gestor de Trading',
   'Fotógrafo',
-  'Promoter de Venda',
+  'Promotor de Venda',
   'Colaborador'
 ));
 
@@ -437,7 +437,7 @@ BEGIN
       (new_user_id, 'Sessões executadas', 100, 0),
       (new_user_id, 'Taxa de execução (%)', 100, 0),
       (new_user_id, 'Receita individual gerada (MT)', 100, 0);
-  ELSIF p_role = 'Promoter de Venda' THEN
+  ELSIF p_role = 'Promotor de Venda' THEN
     INSERT INTO public.user_kpis (user_id, kpi_name, target_score, actual_score) VALUES
       (new_user_id, 'Leads Contactados', 100, 0),
       (new_user_id, 'Leads Qualificados', 100, 0),

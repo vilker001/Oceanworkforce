@@ -382,7 +382,7 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
                   <option value="Gestor Técnico">Gestor Técnico</option>
                   <option value="Gestor de Trading">Gestor de Trading</option>
                   <option value="Fotógrafo">Fotógrafo</option>
-                  <option value="Promoter de Venda">Promoter de Venda (SDR)</option>
+                  <option value="Promotor de Venda">Promotor de Venda (SDR)</option>
                   <option value="Colaborador">Colaborador</option>
                 </select>
               </div>
@@ -467,7 +467,7 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
                   <option value="Gestor Técnico">Gestor Técnico</option>
                   <option value="Gestor de Trading">Gestor de Trading</option>
                   <option value="Fotógrafo">Fotógrafo</option>
-                  <option value="Promoter de Venda">Promoter de Venda (SDR)</option>
+                  <option value="Promotor de Venda">Promotor de Venda (SDR)</option>
                   <option value="Colaborador">Colaborador</option>
                 </select>
               </div>

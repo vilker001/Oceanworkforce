@@ -10,7 +10,7 @@ const ROLES: { id: UserRole; title: string, desc: string, icon: string }[] = [
     { id: 'Gestor Técnico', title: 'Gestor Técnico', desc: 'Direção de infraestrutura e projetos de tecnologia.', icon: 'code' },
     { id: 'Gestor de Trading', title: 'Gestor de Trading', desc: 'Operações financeiras e trading de capitais.', icon: 'currency_exchange' },
     { id: 'Fotógrafo', title: 'Fotógrafo', desc: 'Produção audiovisual, captação e edição.', icon: 'camera_alt' },
-    { id: 'Promoter de Venda', title: 'Promoter de Venda', desc: 'Prospecção e qualificação comercial.', icon: 'campaign' },
+    { id: 'Promotor de Venda', title: 'Promotor de Venda', desc: 'Prospecção e qualificação comercial.', icon: 'campaign' },
     { id: 'Colaborador', title: 'Colaborador', desc: 'Apoio e execução de tarefas gerais.', icon: 'person' },
 ];
 

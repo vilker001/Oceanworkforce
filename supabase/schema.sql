@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     'Gestor de Parceiros e Clientes',
     'Gestor de Trading e Negociação',
     'Designer',
-    'Promoter de Venda',
+    'Promotor de Venda',
     'Videomaker',
     'Colaborador'
   )),

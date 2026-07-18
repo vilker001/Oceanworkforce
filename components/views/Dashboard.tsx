@@ -156,13 +156,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
             <h1 className="text-2xl lg:text-3xl font-black">{getGreeting()}, {currentUser.name}!</h1>
             <p className="text-xs lg:text-sm text-white/80 mt-1 font-medium">Bem-vindo ao seu painel de controle. Tens a função de <span className="font-bold uppercase tracking-wider text-white bg-white/20 px-2 py-0.5 rounded">{currentUser.role}</span>.</p>
           </div>
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20">
-            <span className="material-symbols-outlined text-amber-300 filled animate-bounce">emoji_events</span>
-            <div>
-              <p className="text-[10px] text-white/60 font-black uppercase leading-none">Meta Mensal</p>
-              <p className="text-sm font-black mt-0.5">{teamGoals.find(g => g.month === currentMonthStr)?.target_xp ? `${teamGoals.find(g => g.month === currentMonthStr)?.target_xp} XP Target` : 'Configura a Meta!'}</p>
+          {['Gestor de Projetos', 'Colaborador'].includes(currentUser.role) && (
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20">
+              <span className="material-symbols-outlined text-amber-300 filled animate-bounce">emoji_events</span>
+              <div>
+                <p className="text-[10px] text-white/60 font-black uppercase leading-none">Meta Mensal</p>
+                <p className="text-sm font-black mt-0.5">
+                  {teamGoals.find(g => g.month === currentMonthStr)?.target_xp 
+                    ? `${teamGoals.find(g => g.month === currentMonthStr)?.target_xp} XP Target` 
+                    : (currentUser.role === 'Gestor de Projetos' ? 'Configura a Meta!' : 'Meta não definida')}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -424,7 +430,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       )}
 
       {/* E. PROMOTER DE VENDA (SDR) DASHBOARD */}
-      {currentUser.role === 'Promoter de Venda' && (
+      {currentUser.role === 'Promotor de Venda' && (
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm">

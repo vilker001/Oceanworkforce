@@ -127,7 +127,7 @@ export const Ranking: React.FC<RankingProps> = ({ currentUser }) => {
     }
   };
 
-  const roles = ['Fotógrafo', 'Promoter de Venda', 'Colaborador', 'Gestor Técnico', 'Gestor de Trading'];
+  const roles = ['Fotógrafo', 'Promotor de Venda', 'Colaborador', 'Gestor Técnico', 'Gestor de Trading'];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -13,7 +13,7 @@ const ROLE_ICONS: Record<string, string> = {
   'Gestor Técnico': 'code',
   'Gestor de Trading': 'candlestick_chart',
   'Fotógrafo': 'photo_camera',
-  'Promoter de Venda': 'campaign',
+  'Promotor de Venda': 'campaign',
   'Colaborador': 'person',
 };
 
@@ -22,7 +22,7 @@ const ROLE_COLORS: Record<string, string> = {
   'Gestor Técnico': 'from-violet-600 to-purple-700',
   'Gestor de Trading': 'from-emerald-600 to-teal-700',
   'Fotógrafo': 'from-orange-500 to-amber-600',
-  'Promoter de Venda': 'from-rose-500 to-pink-600',
+  'Promotor de Venda': 'from-rose-500 to-pink-600',
   'Colaborador': 'from-slate-500 to-zinc-600',
 };
 

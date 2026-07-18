@@ -147,7 +147,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
   const updateClientStatus = async (clientId: string, newStatus: ClientStatus) => {
     const client = clients.find(c => c.id === clientId);
-    const isManager = ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role);
+    const isManager = ['Gestor de Projetos', 'Gestor de Trading'].includes(user.role);
     const canUpdate = isManager || client?.responsible === user.name;
 
     if (!canUpdate) {
@@ -218,7 +218,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
   const handleDeleteLead = async (clientId: string) => {
     const client = clients.find(c => c.id === clientId);
-    const isManager = ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role);
+    const isManager = ['Gestor de Projetos', 'Gestor de Trading'].includes(user.role);
     const isResponsible = client?.responsible === user.name;
 
     if (!isManager && !isResponsible) {
@@ -361,7 +361,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
   const handleAddFollowUp = async () => {
     if (!selectedClient || !newFollowUpNotes) return;
-    const isManager = ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role);
+    const isManager = ['Gestor de Projetos', 'Gestor de Trading'].includes(user.role);
     const isResponsible = selectedClient.responsible === user.name;
     
     if (!isManager && !isResponsible) {
@@ -612,8 +612,8 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                         {client.status}
                       </span>
                       {/* Quick Change Dropdown on Hover */}
-                      {(['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role) || client.responsible === user.name) && (
-                        <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all z-20">
+                      {(['Gestor de Projetos', 'Gestor de Trading'].includes(user.role) || client.responsible === user.name) && (
+                        <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all z-50">
                           <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl p-2 flex flex-col gap-1 min-w-[160px]">
                             {(Object.keys(statusConfig) as ClientStatus[]).map(st => (
                               <button
@@ -841,7 +841,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
       {/* MODAL DETALHES DO LEAD & HISTÓRICO DE FOLLOW-UP */}
       {isDetailModalOpen && selectedClient && (() => {
-        const canEditCurrentClient = ['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(user.role) || selectedClient.responsible === user.name;
+        const canEditCurrentClient = ['Gestor de Projetos', 'Gestor de Trading'].includes(user.role) || selectedClient.responsible === user.name;
         
         return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">

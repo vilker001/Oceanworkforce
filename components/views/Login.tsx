@@ -115,8 +115,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       </div>
 
       {/* Form Side */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md flex flex-col gap-6">
+      <div className="w-full lg:w-1/2 flex flex-col p-4 sm:p-8 overflow-y-auto">
+        <div className="w-full max-w-md flex flex-col gap-6 m-auto shrink-0 py-8">
           <div className="text-center">
             <div className="flex items-center justify-center mb-6">
               <Logo className="h-24" variant="black" />

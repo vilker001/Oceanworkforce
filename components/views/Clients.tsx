@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { supabase } from '../../src/lib/supabase';
 import { Client, ClientStatus, User, FollowUp, ServiceCatalogItem } from '../../types';
 import { useConfirm } from '../ui/ConfirmDialog';
@@ -54,6 +55,49 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkMode, setIsBulkMode] = useState(false);
+
+  // Status dropdown state — tracks which client's dropdown is open and its screen position
+  const [openStatusId, setOpenStatusId] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleStatusBadgeClick = useCallback((e: React.MouseEvent, clientId: string) => {
+    if (openStatusId === clientId) {
+      setOpenStatusId(null);
+      setDropdownPos(null);
+      return;
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const dropdownHeight = 280; // approximate
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= dropdownHeight ? rect.bottom + 6 : rect.top - dropdownHeight - 6;
+    setDropdownPos({ top, left: rect.left });
+    setOpenStatusId(clientId);
+  }, [openStatusId]);
+
+  // Close dropdown on outside click or scroll
+  useEffect(() => {
+    if (!openStatusId) return;
+    const closeDropdown = (e: Event) => {
+      // For mousedown: only close if click is outside the dropdown panel
+      if (e.type === 'mousedown') {
+        if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+          setOpenStatusId(null);
+          setDropdownPos(null);
+        }
+      } else {
+        // For scroll: always close so the panel doesn't drift
+        setOpenStatusId(null);
+        setDropdownPos(null);
+      }
+    };
+    document.addEventListener('mousedown', closeDropdown);
+    window.addEventListener('scroll', closeDropdown, true); // capture=true catches all scroll events
+    return () => {
+      document.removeEventListener('mousedown', closeDropdown);
+      window.removeEventListener('scroll', closeDropdown, true);
+    };
+  }, [openStatusId]);
 
   // Form State — businessValue removed: now auto-calculated from selected services
   const [formData, setFormData] = useState({
@@ -451,84 +495,136 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   };
 
   return (
-    <div className="flex flex-col gap-6 pb-10">
+    <div className="flex flex-col gap-4 pb-10">
+      {/* Status dropdown rendered into document.body via portal — escapes all overflow/stacking contexts */}
+      {openStatusId && dropdownPos && ReactDOM.createPortal(
+        <div
+          ref={statusDropdownRef}
+          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, zIndex: 99999 }}
+          className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-2xl p-2 flex flex-col gap-0.5 min-w-[190px]"
+        >
+          <p className="text-[9px] font-black uppercase tracking-widest text-text-sub px-3 py-1.5 border-b border-gray-100 dark:border-zinc-800 mb-1">Mudar Estado</p>
+          {(Object.keys(statusConfig) as ClientStatus[]).map(st => {
+            const isCurrent = clients.find(c => c.id === openStatusId)?.status === st;
+            const cfg = statusConfig[st];
+            return (
+              <button
+                key={st}
+                onClick={() => {
+                  if (!isCurrent) updateClientStatus(openStatusId, st);
+                  setOpenStatusId(null);
+                  setDropdownPos(null);
+                }}
+                className={`text-[11px] font-bold text-left px-3 py-2 rounded-xl transition-all flex items-center gap-2.5 ${
+                  isCurrent ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-zinc-800 text-text-sub'
+                }`}
+              >
+                <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${cfg.bg.split(' ')[0]}`} />
+                {st}
+                {isCurrent && <span className="material-symbols-outlined text-[12px] ml-auto">check</span>}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight">CRM & Pipeline Comercial</h2>
-          <p className="text-text-sub text-sm">Gestão de leads e clientes regionais em Maputo.</p>
-          {error && <div className="mt-2 bg-red-100 text-red-600 p-2 text-xs font-bold rounded">ERRO NA BASE DE DADOS: {error}</div>}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="min-w-0">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">CRM &amp; Pipeline Comercial</h2>
+            <p className="text-text-sub text-sm">Gestão de leads e clientes regionais em Maputo.</p>
+            {error && <div className="mt-2 bg-red-100 text-red-600 p-2 text-xs font-bold rounded">ERRO NA BASE DE DADOS: {error}</div>}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-primary hover:bg-primary/95 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-primary/20 hover:scale-105 transition-all flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-base">person_add</span>
+              <span className="hidden sm:inline">Novo Lead</span>
+              <span className="sm:hidden">Novo</span>
+            </button>
+          </div>
         </div>
+
+        {/* Secondary action bar */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Bulk action bar */}
           {isBulkMode && selectedIds.size > 0 && (
             <button
               onClick={handleBulkDelete}
-              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-red-500/20 transition-all"
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-bold text-xs shadow-md shadow-red-500/20 transition-all"
             >
-              <span className="material-symbols-outlined text-base">delete</span>
-              Apagar {selectedIds.size} Selecionado(s)
+              <span className="material-symbols-outlined text-sm">delete</span>
+              Apagar {selectedIds.size}
             </button>
           )}
           <button
             onClick={() => { setIsBulkMode(p => !p); setSelectedIds(new Set()); }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-sm border-2 transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs border-2 transition-all ${
               isBulkMode
                 ? 'bg-primary/10 border-primary text-primary'
                 : 'bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700 text-text-sub hover:border-primary hover:text-primary'
             }`}
           >
-            <span className="material-symbols-outlined text-base">checklist</span>
-            {isBulkMode ? 'Cancelar Seleção' : 'Selecionar'}
+            <span className="material-symbols-outlined text-sm">checklist</span>
+            {isBulkMode ? 'Cancelar' : 'Selecionar'}
           </button>
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-emerald-500/20 transition-all"
+            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 transition-all"
             title={selectedIds.size > 0 ? `Exportar ${selectedIds.size} selecionado(s)` : 'Exportar todos os leads visíveis'}
           >
-            <span className="material-symbols-outlined text-base">download</span>
-            {selectedIds.size > 0 ? `Exportar ${selectedIds.size}` : 'Exportar CSV'}
-          </button>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-primary hover:bg-primary/95 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-primary/20 hover:scale-105 transition-all"
-          >
-            <span className="material-symbols-outlined text-base">person_add</span> Novo Lead
+            <span className="material-symbols-outlined text-sm">download</span>
+            {selectedIds.size > 0 ? `Exportar ${selectedIds.size}` : 'CSV'}
           </button>
         </div>
       </div>
 
       {/* Funil de Status (Filtros Rápidos) */}
-      <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar items-center">
-        <button
-          onClick={() => setFilterStatus('Pendentes')}
-          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap border-2 flex items-center gap-1 ${filterStatus === 'Pendentes'
-            ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/20'
-            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:border-amber-400'
-            }`}
-        >
-          <span className="material-symbols-outlined text-[14px]">notifications_active</span>
-          Follow-ups Pendentes
-          <span className="ml-2 bg-white/30 px-1.5 rounded text-[10px]">
-            {clients.filter(c => !!c.nextFollowUpDate && c.nextFollowUpDate <= new Date().toISOString().split('T')[0] && c.status !== 'Convertido' && c.status !== 'Perdido').length}
-          </span>
-        </button>
-
-        <div className="w-px h-6 bg-gray-200 dark:bg-zinc-700 mx-1 shrink-0"></div>
-
-        {(['Todos', 'Novo Lead', 'Em Contacto', 'Proposta Enviada', 'Consultoria Marcada', 'Convertido', 'Repescagem', 'Perdido'] as const).map(status => (
+      <div className="sticky top-0 z-40 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 p-2 shadow-sm">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar items-center">
           <button
-            key={status}
-            onClick={() => setFilterStatus(status)}
-            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap border-2 ${filterStatus === status
-              ? 'bg-primary border-primary text-white shadow-md'
-              : 'bg-white dark:bg-zinc-900 border-gray-100 dark:border-zinc-800 text-text-sub hover:border-gray-200'
-              }`}
+            onClick={() => setFilterStatus('Pendentes')}
+            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1 shrink-0 ${
+              filterStatus === 'Pendentes'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30'
+            }`}
           >
-            {status}
-            {status !== 'Todos' && <span className="ml-2 opacity-60">{clients.filter(c => c.status === status).length}</span>}
+            <span className="material-symbols-outlined text-[13px]">notifications_active</span>
+            <span className="hidden sm:inline">Follow-ups Pendentes</span>
+            <span className="sm:hidden">Pendentes</span>
+            <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black ${
+              filterStatus === 'Pendentes' ? 'bg-white/25 text-white' : 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-300'
+            }`}>
+              {clients.filter(c => !!c.nextFollowUpDate && c.nextFollowUpDate <= new Date().toISOString().split('T')[0] && c.status !== 'Convertido' && c.status !== 'Perdido').length}
+            </span>
           </button>
-        ))}
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-zinc-700 mx-0.5 shrink-0"></div>
+
+          {(['Todos', 'Novo Lead', 'Em Contacto', 'Proposta Enviada', 'Consultoria Marcada', 'Convertido', 'Repescagem', 'Perdido'] as const).map(status => (
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                filterStatus === status
+                  ? 'bg-primary text-white shadow-md shadow-primary/20'
+                  : 'text-text-sub hover:bg-gray-100 dark:hover:bg-zinc-800'
+              }`}
+            >
+              {status}
+              {status !== 'Todos' && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black ${
+                  filterStatus === status ? 'bg-white/25 text-white' : 'bg-gray-100 dark:bg-zinc-800 text-text-sub'
+                }`}>
+                  {clients.filter(c => c.status === status).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
@@ -607,27 +703,22 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                     {client.businessValue ? `MT ${client.businessValue.toLocaleString('pt-MZ')}` : '—'}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="relative inline-block group/status">
+                    {(['Gestor de Projetos', 'Gestor de Trading'].includes(user.role) || client.responsible === user.name) ? (
+                      <button
+                        onClick={(e) => handleStatusBadgeClick(e, client.id)}
+                        title="Clique para mudar o estado"
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider cursor-pointer transition-all hover:opacity-80 hover:ring-2 hover:ring-offset-1 hover:ring-primary/30 active:scale-95 ${
+                          statusConfig[client.status].bg
+                        } ${statusConfig[client.status].color} ${openStatusId === client.id ? 'ring-2 ring-primary/50 ring-offset-1' : ''}`}
+                      >
+                        {client.status}
+                        <span className="material-symbols-outlined text-[10px] ml-1 opacity-60">unfold_more</span>
+                      </button>
+                    ) : (
                       <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${statusConfig[client.status].bg} ${statusConfig[client.status].color}`}>
                         {client.status}
                       </span>
-                      {/* Quick Change Dropdown on Hover */}
-                      {(['Gestor de Projetos', 'Gestor de Trading'].includes(user.role) || client.responsible === user.name) && (
-                        <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all z-50">
-                          <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl p-2 flex flex-col gap-1 min-w-[160px]">
-                            {(Object.keys(statusConfig) as ClientStatus[]).map(st => (
-                              <button
-                                key={st}
-                                onClick={() => updateClientStatus(client.id, st)}
-                                className={`text-[10px] font-bold text-left px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 ${client.status === st ? 'text-primary' : 'text-text-sub'}`}
-                              >
-                                Mudar para {st}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-xs font-bold text-text-sub">
                     {client.nextFollowUpDate ? (

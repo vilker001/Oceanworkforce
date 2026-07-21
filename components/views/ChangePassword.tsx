@@ -108,8 +108,8 @@ export const ChangePassword: React.FC<ChangePasswordProps> = ({ userId, onPasswo
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-gray-100 dark:border-zinc-800 p-8 shadow-2xl relative overflow-hidden my-6">
+    <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col p-4 sm:p-8 overflow-y-auto">
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-gray-100 dark:border-zinc-800 p-6 sm:p-8 shadow-2xl relative overflow-hidden m-auto shrink-0">
         <div className="absolute top-0 right-0 -mt-24 -mr-24 size-80 bg-primary/5 rounded-full blur-[80px] pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col gap-6">

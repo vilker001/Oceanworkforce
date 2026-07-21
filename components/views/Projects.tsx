@@ -146,15 +146,15 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
       await createStage({
         project_id: selectedProject.id,
         name: stageName,
-        description: stageDesc || undefined,
+        description: stageDesc || null,
         start_date: stageStart,
         due_date: stageDue,
         status: 'A Fazer',
         relevance: parseInt(stageRelevance),
         objectives: objectivesList,
-        responsible_id: stageResponsibleId || undefined,
-        delegated_by: currentUser.id
-      });
+        responsible_id: stageResponsibleId || null,
+        delegated_by: currentUser.id || null
+      } as any);
 
       setShowStageModal(false);
       setStageName('');
@@ -164,9 +164,9 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
       setStageRelevance('3');
       setStageObjectivesInput('');
       setStageResponsibleId('');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Erro ao criar etapa.');
+      alert('Erro ao criar etapa: ' + (e.message || JSON.stringify(e)));
     } finally {
       setSavingStage(false);
     }

@@ -116,6 +116,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ user }) 
                 .eq('read', false); // Only update unread ones
 
             if (error) throw error;
+            
+            // Optimistic update
+            setNotifications(prev => prev.map(n => ({...n, read: true})));
+            setUnreadCount(0);
 
             fetchNotifications();
         } catch (err) {
@@ -169,14 +173,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ user }) 
                     </div>
 
                     <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                        {notifications.length === 0 ? (
+                        {notifications.filter(n => !n.read).length === 0 ? (
                             <div className="p-8 text-center text-text-sub flex flex-col items-center gap-2">
                                 <span className="material-symbols-outlined text-4xl opacity-20">notifications_off</span>
-                                <p className="text-xs">Nenhuma notificação no momento.</p>
+                                <p className="text-xs">Nenhuma notificação não lida no momento.</p>
                             </div>
                         ) : (
                             <div className="flex flex-col">
-                                {notifications.map(notification => (
+                                {notifications.filter(n => !n.read).map(notification => (
                                     <div
                                         key={notification.id}
                                         onClick={() => !notification.read && markAsRead(notification.id)}

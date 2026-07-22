@@ -67,8 +67,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onFinish }) 
     const prev = () => setStep(s => s - 1);
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex items-center justify-center p-6">
-            <div className="w-full max-w-4xl flex flex-col gap-8">
+        <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex items-center justify-center p-6 py-10 overflow-y-auto">
+            <div className="w-full max-w-4xl flex flex-col gap-8 my-auto">
                 {/* Progress Bar */}
                 <div className="flex flex-col gap-3">
                     <div className="flex justify-between items-end">

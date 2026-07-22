@@ -249,6 +249,18 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
             </div>
             <div className="flex-1 bg-gray-50/50 dark:bg-zinc-900/10 p-2.5 rounded-[2rem] flex flex-col gap-3 min-h-[400px] border border-gray-100 dark:border-zinc-800/30">
               {filteredTasks(col).map(task => (
+                col === 'Done' ? (
+                  <div key={task.id} onClick={() => { setSelectedTask(task); setIsDetailOpen(true); }}
+                       className="bg-white dark:bg-zinc-900/50 p-3 rounded-xl border border-green-200/50 dark:border-green-900/50 shadow-sm hover:shadow-md transition-all cursor-pointer flex justify-between items-center opacity-70 hover:opacity-100">
+                    <div className="flex flex-col truncate pr-2">
+                      <h4 className="text-[11px] font-bold truncate text-text-sub line-through">{task.title}</h4>
+                      <p className="text-[9px] text-gray-400 dark:text-zinc-500 truncate">{task.project} • {formatDate(task.dueDate)}</p>
+                    </div>
+                    {task.responsible && (
+                      <img src={allTeamMembers.find(m => m.name === task.responsible)?.avatar || DEFAULT_AVATAR} className="size-5 rounded object-cover flex-shrink-0 grayscale" alt="" />
+                    )}
+                  </div>
+                ) : (
                 <div
                   key={task.id}
                   onClick={() => { setSelectedTask(task); setIsDetailOpen(true); }}
@@ -331,6 +343,7 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                     )}
                   </div>
                 </div>
+                )
               ))}
               {filteredTasks(col).length === 0 && (
                 <div className="flex flex-col items-center justify-center py-10 opacity-30">

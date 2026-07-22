@@ -53,6 +53,8 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
   const filteredSessions = mySessions.filter(s =>
     filterStatus === 'Todos' ? true : s.status === filterStatus
   );
+  
+  const bmsCatalog = catalog.filter(i => i.catalog_type === 'BMS Studio');
 
   const selectCatalogItem = (item: ServiceCatalogItem) => {
     setSessionForm(p => ({ ...p, service_type: item.name, price_mt: String(item.price_mt) }));
@@ -78,7 +80,10 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
       });
       setShowSessionModal(false);
       setSessionForm({ service_type: '', location_type: 'estúdio', date: '', time: '10:00', duration_estimated: '1h', client_name: '', client_phone: '', price_mt: '', notes: '', photographer_id: currentUser.id || '' });
-    } catch (e) { console.error(e); } finally { setSaving(false); }
+    } catch (e: any) { 
+      console.error(e); 
+      alert("Erro ao marcar sessão: " + (e.message || JSON.stringify(e)));
+    } finally { setSaving(false); }
   };
 
   const handleSaveCatalog = async () => {
@@ -157,11 +162,11 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
       </div>
 
       {/* Catalog quick view */}
-      {catalog.length > 0 && showSessionModal && (
+      {bmsCatalog.length > 0 && showSessionModal && (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-4 mb-2">
           <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-2">Selecionar do Catálogo:</p>
           <div className="flex flex-wrap gap-2">
-            {catalog.map(item => (
+            {bmsCatalog.map(item => (
               <button key={item.id} onClick={() => selectCatalogItem(item)}
                 className="text-xs bg-white dark:bg-zinc-800 border border-blue-200 dark:border-blue-700 px-3 py-1 rounded-lg hover:bg-blue-100 transition-all font-medium">
                 {item.name} — MT {item.price_mt.toLocaleString('pt-MZ')}
@@ -240,11 +245,11 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
             </div>
 
             {/* Quick Catalog Select */}
-            {catalog.length > 0 && (
+            {bmsCatalog.length > 0 && (
               <div className="mb-4">
                 <label className="text-xs font-bold text-text-sub uppercase mb-2 block">Selecionar do Catálogo</label>
                 <div className="flex flex-wrap gap-2">
-                  {catalog.map(item => (
+                  {bmsCatalog.map(item => (
                     <button key={item.id} onClick={() => selectCatalogItem(item)}
                       className={`text-xs border px-2 py-1 rounded-lg transition-all font-medium ${sessionForm.service_type === item.name ? 'bg-primary text-white border-primary' : 'bg-gray-50 dark:bg-zinc-800 border-gray-200 dark:border-zinc-700'}`}>
                       {item.name}

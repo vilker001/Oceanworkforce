@@ -124,6 +124,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   );
 
   const [formError, setFormError] = useState('');
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
 
 
   // Follow Ups States
@@ -260,6 +261,29 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
     setIsDetailModalOpen(true);
   };
 
+  const handleEditLead = () => {
+    if (!selectedClient) return;
+    setFormData({
+      name: selectedClient.name,
+      email: selectedClient.email,
+      phone: selectedClient.phone || '',
+      companyPhone: selectedClient.companyPhone || '',
+      companyName: selectedClient.companyName || '',
+      nuit: selectedClient.nuit || '',
+      nextFollowUpDate: selectedClient.nextFollowUpDate || '',
+      internalContact: selectedClient.internalContact || '',
+      internalContactPhone: selectedClient.internalContactPhone || '',
+      internalContactRole: selectedClient.internalContactRole || '',
+      responsible: selectedClient.responsible || '',
+      selectedCatalogItems: catalogServices.filter(c => selectedClient.services.includes(c.name)),
+      location: selectedClient.location,
+      provenance: selectedClient.provenance
+    });
+    setEditingLeadId(selectedClient.id);
+    setIsDetailModalOpen(false);
+    setIsModalOpen(true);
+  };
+
   const handleDeleteLead = async (clientId: string) => {
     const client = clients.find(c => c.id === clientId);
     const isManager = ['Gestor de Projetos', 'Gestor de Trading'].includes(user.role);
@@ -394,11 +418,15 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
     };
 
     try {
-      await onAddClient(newClient);
+      if (editingLeadId) {
+        await onUpdateClient(editingLeadId, newClient);
+      } else {
+        await onAddClient(newClient);
+      }
       setIsModalOpen(false);
       resetForm();
     } catch (err) {
-      setFormError('Erro ao cadastrar lead. Tente novamente.');
+      setFormError('Erro ao guardar lead. Tente novamente.');
     }
   };
 
@@ -492,6 +520,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       provenance: 'Outro'
     });
     setFormError('');
+    setEditingLeadId(null);
   };
 
   return (
@@ -724,7 +753,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                     {client.nextFollowUpDate ? (
                       <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
                         <span className="material-symbols-outlined text-base">event</span>
-                        {new Date(client.nextFollowUpDate).toLocaleDateString('pt-MZ')}
+                        {new Date(client.nextFollowUpDate).toLocaleString('pt-MZ', { dateStyle: 'short', timeStyle: 'short' }).replace(',', ' às')}
                       </span>
                     ) : 'Sem follow-up agendado'}
                   </td>
@@ -777,7 +806,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
             className="relative bg-white dark:bg-zinc-900 w-full max-w-2xl rounded-3xl shadow-2xl p-8 flex flex-col gap-6 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
-              <h3 className="text-2xl font-black tracking-tight">Novo Prospecto comercial</h3>
+              <h3 className="text-2xl font-black tracking-tight">{editingLeadId ? 'Editar Lead' : 'Novo Prospecto comercial'}</h3>
               <button type="button" onClick={() => { setIsModalOpen(false); resetForm(); }} className="material-symbols-outlined text-text-sub hover:text-red-500 transition-colors">close</button>
             </div>
 
@@ -810,18 +839,27 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-text-sub uppercase">Email de Contacto *</label>
-                  <input required type="email" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="contacto@empresa.com" value={formData.email} onChange={e => { setFormData({ ...formData, email: e.target.value }); setFormError(''); }} />
+                  <label className="text-[10px] font-bold text-text-sub uppercase">Email de Contacto (Opcional)</label>
+                  <input type="email" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="contacto@empresa.com" value={formData.email} onChange={e => { setFormData({ ...formData, email: e.target.value }); setFormError(''); }} />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-text-sub uppercase">WhatsApp / Telefone</label>
-                  <input className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="+258 84 XXX XXXX" value={formData.phone} onChange={e => { setFormData({ ...formData, phone: e.target.value }); setFormError(''); }} />
+                  <input className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="84 123 4567" value={formData.phone} onChange={e => { 
+                    const val = e.target.value.replace(/[^\d\s+]/g, '');
+                    setFormData({ ...formData, phone: val }); 
+                    setFormError(''); 
+                  }} onBlur={() => {
+                    const clean = formData.phone.replace(/[^\d]/g, '');
+                    if (clean && !/^(82|83|84|85|86|87|88)/.test(clean) && !/^258(82|83|84|85|86|87|88)/.test(clean)) {
+                      setFormError("O telefone deve começar com 82 a 88 (redes móveis de Moçambique).");
+                    }
+                  }} />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase">Primeiro Follow-Up (Opcional)</label>
-                <input type="date" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" value={formData.nextFollowUpDate} onChange={e => setFormData({ ...formData, nextFollowUpDate: e.target.value })} />
+                <input type="datetime-local" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" value={formData.nextFollowUpDate} onChange={e => setFormData({ ...formData, nextFollowUpDate: e.target.value })} />
               </div>
             </div>
 
@@ -923,7 +961,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
             >
               {formData.selectedCatalogItems.length === 0
                 ? 'Seleccione pelo menos 1 serviço'
-                : `Guardar Lead — MT ${calculatedBusinessValue.toLocaleString('pt-MZ')}`
+                : `${editingLeadId ? 'Atualizar' : 'Guardar'} Lead — MT ${calculatedBusinessValue.toLocaleString('pt-MZ')}`
               }
             </button>
           </form>
@@ -947,8 +985,14 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                     {selectedClient.initials}
                   </div>
                   <div>
-                    <h2 className="text-xl font-black">{selectedClient.name}</h2>
-                    {selectedClient.companyName && <p className="text-sm text-text-sub font-semibold">{selectedClient.companyName}</p>}
+                    {selectedClient.companyName ? (
+                      <>
+                        <h2 className="text-2xl font-black text-primary">{selectedClient.companyName}</h2>
+                        <p className="text-sm font-semibold text-text-sub">Contacto: {selectedClient.name}</p>
+                      </>
+                    ) : (
+                      <h2 className="text-xl font-black">{selectedClient.name}</h2>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1013,13 +1057,22 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                   Fechar
                 </button>
                 {canEditCurrentClient && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteLead(selectedClient.id)}
-                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/10"
-                  >
-                    <span className="material-symbols-outlined text-base">delete</span> Eliminar Lead
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleEditLead}
+                      className="flex-1 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base">edit</span> Editar Lead
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLead(selectedClient.id)}
+                      className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-500/10"
+                    >
+                      <span className="material-symbols-outlined text-base">delete</span> Eliminar Lead
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -1061,7 +1114,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                   <div className="flex flex-col gap-1">
                     <label className="text-[9px] font-bold text-text-sub uppercase">Próximo Contacto</label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-750 rounded-xl p-2 text-xs outline-none"
                       value={newFollowUpNextDate}
                       onChange={e => setNewFollowUpNextDate(e.target.value)}
@@ -1113,7 +1166,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                         {fu.next_follow_up_date && (
                           <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold mt-1 uppercase flex items-center gap-0.5">
                             <span className="material-symbols-outlined text-[10px]">event</span>
-                            Seguinte: {new Date(fu.next_follow_up_date).toLocaleDateString('pt-MZ')}
+                            Seguinte: {new Date(fu.next_follow_up_date).toLocaleString('pt-MZ', { dateStyle: 'short', timeStyle: 'short' }).replace(',', ' às')}
                           </p>
                         )}
                       </div>

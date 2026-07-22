@@ -263,6 +263,19 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
   const handleEditLead = () => {
     if (!selectedClient) return;
+    
+    // Formata a data para yyyy-MM-ddThh:mm para o input datetime-local
+    let formattedDate = selectedClient.nextFollowUpDate || '';
+    if (formattedDate) {
+      try {
+        const d = new Date(formattedDate);
+        if (!isNaN(d.getTime())) {
+          const offset = d.getTimezoneOffset() * 60000;
+          formattedDate = (new Date(d.getTime() - offset)).toISOString().slice(0, 16);
+        }
+      } catch (e) {}
+    }
+
     setFormData({
       name: selectedClient.name,
       email: selectedClient.email,
@@ -270,7 +283,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       companyPhone: selectedClient.companyPhone || '',
       companyName: selectedClient.companyName || '',
       nuit: selectedClient.nuit || '',
-      nextFollowUpDate: selectedClient.nextFollowUpDate || '',
+      nextFollowUpDate: formattedDate,
       internalContact: selectedClient.internalContact || '',
       internalContactPhone: selectedClient.internalContactPhone || '',
       internalContactRole: selectedClient.internalContactRole || '',
@@ -385,14 +398,17 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       return;
     }
 
-    // Duplicate check: same email or same phone
-    const emailExists = clients.some(c => c.email.toLowerCase() === formData.email.toLowerCase().trim());
-    if (emailExists) {
-      setFormError(`Já existe um lead com o email "${formData.email}". Verifique o pipeline.`);
-      return;
+    // Duplicate check: same email or same phone (ignoring the lead currently being edited)
+    if (formData.email.trim()) {
+      const emailExists = clients.some(c => c.id !== editingLeadId && c.email.toLowerCase() === formData.email.toLowerCase().trim());
+      if (emailExists) {
+        setFormError(`Já existe um lead com o email "${formData.email}". Verifique o pipeline.`);
+        return;
+      }
     }
+    
     if (formData.phone.trim()) {
-      const phoneExists = clients.some(c => c.phone && c.phone.replace(/\s/g, '') === formData.phone.replace(/\s/g, ''));
+      const phoneExists = clients.some(c => c.id !== editingLeadId && c.phone && c.phone.replace(/\s/g, '') === formData.phone.replace(/\s/g, ''));
       if (phoneExists) {
         setFormError(`Já existe um lead com o telefone "${formData.phone}". Verifique o pipeline.`);
         return;

@@ -31,7 +31,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
     location_type: 'estúdio' as 'estúdio' | 'exterior',
     date: '',
     time: '10:00',
-    duration_estimated: '1h',
+    duration_estimated: '60', // minutos
     client_name: '',
     client_phone: '',
     price_mt: '',
@@ -79,7 +79,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
         photographer_name: undefined,
       });
       setShowSessionModal(false);
-      setSessionForm({ service_type: '', location_type: 'estúdio', date: '', time: '10:00', duration_estimated: '1h', client_name: '', client_phone: '', price_mt: '', notes: '', photographer_id: currentUser.id || '' });
+      setSessionForm({ service_type: '', location_type: 'estúdio', date: '', time: '10:00', duration_estimated: '60', client_name: '', client_phone: '', price_mt: '', notes: '', photographer_id: currentUser.id || '' });
     } catch (e: any) { 
       console.error(e); 
       alert("Erro ao marcar sessão: " + (e.message || JSON.stringify(e)));
@@ -199,7 +199,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${session.status === 'Agendada' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{session.status}</span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{locationLabels[session.location_type]}</span>
                     </div>
-                    <p className="text-xs text-text-sub mt-0.5">{session.client_name} · {session.date} às {session.time} · {session.duration_estimated}</p>
+                    <p className="text-xs text-text-sub mt-0.5">{session.client_name} · {session.date} às {session.time} · {Number(session.duration_estimated) >= 60 ? `${Math.floor(Number(session.duration_estimated)/60)}h${Number(session.duration_estimated)%60 || ''}` : `${session.duration_estimated}min`}</p>
                     {session.photographer_name && <p className="text-xs text-text-sub">Fotógrafo: {session.photographer_name}</p>}
                     <div className="flex items-center gap-4 mt-2">
                       <div>
@@ -278,7 +278,13 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
                   <label className="text-xs font-bold text-text-sub uppercase mb-1 block">Duração Estimada</label>
                   <select value={sessionForm.duration_estimated} onChange={e => setSessionForm(p => ({ ...p, duration_estimated: e.target.value }))}
                     className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
-                    {['30min', '1h', '1h30', '2h', '3h', '4h', 'Dia todo'].map(d => <option key={d}>{d}</option>)}
+                    <option value="30">30 min</option>
+                    <option value="60">1 hora</option>
+                    <option value="90">1h30</option>
+                    <option value="120">2 horas</option>
+                    <option value="180">3 horas</option>
+                    <option value="240">4 horas</option>
+                    <option value="480">Dia todo</option>
                   </select>
                 </div>
               </div>

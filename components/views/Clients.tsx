@@ -477,6 +477,15 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
           return result;
         };
         nextDate = addBusinessDays(new Date(), 3).toISOString().split('T')[0];
+      } else if (nextDate.includes('T') && !nextDate.includes('+') && !nextDate.includes('Z')) {
+        // datetime-local gives "YYYY-MM-DDTHH:mm" without timezone.
+        // Convert to local ISO string to avoid Supabase treating it as UTC (which would shift +2h on display).
+        const localDate = new Date(nextDate);
+        const tzOffset = -localDate.getTimezoneOffset(); // in minutes
+        const sign = tzOffset >= 0 ? '+' : '-';
+        const pad = (n: number) => String(Math.abs(n)).padStart(2, '0');
+        const offsetStr = `${sign}${pad(Math.floor(Math.abs(tzOffset) / 60))}:${pad(Math.abs(tzOffset) % 60)}`;
+        nextDate = nextDate + offsetStr; // e.g. "2026-07-25T14:30+02:00"
       }
 
       const { error: insertErr } = await supabase

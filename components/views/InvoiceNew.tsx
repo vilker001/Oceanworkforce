@@ -111,35 +111,42 @@ export const InvoiceNew: React.FC<InvoiceNewProps> = ({ user, onNavigate }) => {
       // 1. Create Invoice in DB
       const newInvoice = await createInvoice(invoiceData as any, items);
 
-      // 2. Generate PDF Blob
-      const pdfBlob = await pdf(
-        <InvoicePDF 
-          invoice={{ ...newInvoice, items } as any} 
-          company={companyProfile} 
-          client={selectedClient} 
-        />
-      ).toBlob();
+      // 2. Generate PDF Blob and upload (non-blocking — invoice is saved regardless)
+      try {
+        const pdfBlob = await pdf(
+          <InvoicePDF 
+            invoice={{ ...newInvoice, items } as any} 
+            company={companyProfile} 
+            client={selectedClient} 
+          />
+        ).toBlob();
 
-      // 3. Upload to Supabase Storage
-      const fileName = `${newInvoice.codigo.replace('/', '_')}.pdf`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('facturas')
-        .upload(fileName, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: true
-        });
+        // 3. Upload to Supabase Storage
+        const fileName = `${newInvoice.codigo.replace('/', '_')}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('facturas')
+          .upload(fileName, pdfBlob, {
+            contentType: 'application/pdf',
+            upsert: true
+          });
 
-      if (uploadError) throw uploadError;
-
-      // 4. Get URL and update DB
-      const { data: urlData } = supabase.storage.from('facturas').getPublicUrl(fileName);
-      await updateInvoiceUrl(newInvoice.id, urlData.publicUrl);
+        if (!uploadError) {
+          // 4. Get URL and update DB
+          const { data: urlData } = supabase.storage.from('facturas').getPublicUrl(fileName);
+          await updateInvoiceUrl(newInvoice.id, urlData.publicUrl);
+        } else {
+          console.warn('PDF upload failed (invoice still saved):', uploadError.message);
+        }
+      } catch (pdfErr: any) {
+        console.warn('PDF generation failed (invoice still saved):', pdfErr?.message);
+      }
 
       // 5. Navigate to History
       onNavigate(View.INVOICE_HISTORY);
     } catch (err: any) {
-      console.error(err);
-      setError('Erro ao emitir factura. Tente novamente.');
+      console.error('Invoice creation error:', err);
+      const msg = err?.message || err?.error_description || JSON.stringify(err);
+      setError(`Erro ao emitir factura: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }

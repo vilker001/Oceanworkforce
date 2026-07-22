@@ -738,8 +738,8 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                         )}
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        <p className="text-sm font-bold">{client.name}</p>
-                        {client.companyName && <p className="text-xs text-text-sub font-semibold">{client.companyName}</p>}
+                        <p className="text-sm font-bold">{client.companyName || client.name}</p>
+                        {client.companyName && <p className="text-xs text-text-sub font-semibold">{client.name}</p>}
                         <p className="text-[10px] text-text-sub font-medium">{client.email} {client.phone ? `· ${client.phone}` : ''}</p>
                       </div>
                     </div>

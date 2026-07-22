@@ -91,7 +91,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ user }) 
         try {
             const { error } = await supabase
                 .from('notifications')
-                .update({ read: true })
+                .update({ is_read: true } as any)
                 .eq('id', id);
 
             if (error) throw error;
@@ -111,9 +111,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ user }) 
 
             const { error } = await supabase
                 .from('notifications')
-                .update({ read: true })
+                .update({ is_read: true } as any)
                 .eq('user_id', authUser.id)
-                .eq('read', false); // Only update unread ones
+                .eq('is_read', false); // Only update unread ones
 
             if (error) throw error;
             

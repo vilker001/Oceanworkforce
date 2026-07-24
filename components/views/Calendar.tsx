@@ -3,7 +3,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
-import { CalendarEvent, EventType, Task } from '../../types';
+import { CalendarEvent, EventType, Task, TeamMember } from '../../types';
 import { useConfirm } from '../ui/ConfirmDialog';
 
 interface CalendarProps {
@@ -12,6 +12,7 @@ interface CalendarProps {
   tasks: Task[];
   userRole?: string;
   onDeleteEvent?: (id: string) => Promise<void>;
+  team?: TeamMember[];
 }
 
 const eventStyles: Record<EventType | 'Deadline', string> = {
@@ -56,7 +57,7 @@ const generateHolidays = (startYear: number, endYear: number): CalendarEvent[] =
   return holidays;
 };
 
-export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, userRole, onDeleteEvent }) => {
+export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, userRole, onDeleteEvent, team }) => {
   const { confirm } = useConfirm();
   const calendarRef = useRef<FullCalendar>(null);
   
@@ -80,17 +81,27 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
     type: 'Folga',
     description: ''
   });
+  const [selectedConvocados, setSelectedConvocados] = useState<string[]>([]);
 
   const holidays = useMemo(() => generateHolidays(MIN_DATE.getFullYear(), MAX_DATE.getFullYear()), [MIN_DATE, MAX_DATE]);
 
   const allItems = useMemo(() => {
     const merged: any[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     if (filters.events) {
       merged.push(...events.map(e => ({ ...e, isTask: false })));
       merged.push(...holidays.map(e => ({ ...e, isTask: false })));
     }
     if (filters.tasks) {
-      merged.push(...tasks.filter(t => t.dueDate).map(t => ({
+      merged.push(...tasks.filter(t => {
+        if (!t.dueDate) return false;
+        if (t.status === 'Done') return false; // don't show completed tasks
+        const due = new Date(t.dueDate);
+        due.setHours(23, 59, 59, 999);
+        return due >= today; // only future or today deadlines
+      }).map(t => ({
         id: `task-${t.id}`,
         title: `ENTREGA: ${t.title}`,
         date: t.dueDate,
@@ -137,14 +148,22 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
     }
   };
 
-  const handleAddEvent = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await onAddEvent({ ...newEvent });
-      setIsModalOpen(false);
-      setNewEvent({ title: '', date: '', type: 'Geral', description: '' });
-    } catch (err) {
-      alert('Erro ao agendar compromisso.');
+    if (newEvent.title && newEvent.date) {
+      try {
+        let finalDescription = newEvent.description || '';
+        if (selectedConvocados.length > 0) {
+          const convocadosText = `\n\nConvocados:\n- ${selectedConvocados.join('\n- ')}`;
+          finalDescription += convocadosText;
+        }
+        await onAddEvent({ ...newEvent, description: finalDescription.trim() });
+        setIsModalOpen(false);
+        setNewEvent({ title: '', date: '', type: 'Folga', description: '' });
+        setSelectedConvocados([]);
+      } catch (err) {
+        alert('Erro ao agendar compromisso.');
+      }
     }
   };
 
@@ -195,7 +214,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
     const type = eventInfo.event.extendedProps.type as EventType | 'Deadline';
     const styleClass = eventStyles[type] || 'bg-gray-100 text-gray-700';
     return (
-      <div className={`w-full overflow-hidden truncate px-1 py-0.5 rounded-md text-[10px] font-bold border ${styleClass}`} title={eventInfo.event.title}>
+      <div className={`w-full overflow-hidden truncate px-1.5 py-1 rounded-md text-[10px] font-bold ${styleClass}`} title={eventInfo.event.title}>
         {eventInfo.event.title}
       </div>
     );
@@ -286,7 +305,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl">
             <h3 className="text-2xl font-black mb-6">Novo Evento</h3>
-            <form onSubmit={handleAddEvent} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold text-text-sub uppercase mb-1 block">Título</label>
                 <input type="text" required value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" />
@@ -311,6 +330,32 @@ export const Calendar: React.FC<CalendarProps> = ({ events, onAddEvent, tasks, u
                 <label className="text-[10px] font-bold text-text-sub uppercase mb-1 block">Descrição (Opcional)</label>
                 <textarea rows={3} value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none resize-none"></textarea>
               </div>
+              
+              {team && team.length > 0 && (
+                <div className="border-t border-gray-100 dark:border-zinc-800 pt-4 mt-2">
+                  <label className="text-[10px] font-bold text-text-sub uppercase mb-2 block">Convocados (Opcional)</label>
+                  <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">
+                    {team.map(member => (
+                      <label key={member.id} className="flex items-center gap-2 text-xs p-1 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-primary focus:ring-primary/20"
+                          checked={selectedConvocados.includes(member.name)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedConvocados(prev => [...prev, member.name]);
+                            } else {
+                              setSelectedConvocados(prev => prev.filter(n => n !== member.name));
+                            }
+                          }}
+                        />
+                        <span className="font-semibold">{member.name}</span>
+                        <span className="text-[9px] text-text-sub bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{member.role}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-gray-100 dark:border-zinc-800">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-sm font-bold text-text-sub hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-xl transition-colors">Cancelar</button>
                 <button type="submit" className="px-6 py-3 bg-primary text-white text-sm font-black uppercase rounded-xl shadow-lg hover:scale-105 transition-transform">Agendar</button>

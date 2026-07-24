@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { KpiCard } from '../ui/KpiCard';
 import { useKpis } from '../../src/hooks/useKpis';
 import type { KpiResult } from '../../src/hooks/useKpis';
-import type { User } from '../../types';
+import type { User, TeamMember } from '../../types';
 
 interface KpiDashboardProps {
   currentUser: User;
+  team?: TeamMember[];
 }
 
 const ROLE_ICONS: Record<string, string> = {
@@ -188,10 +189,14 @@ const AlertPanel: React.FC<AlertPanelProps> = ({ criticalKpis }) => {
 
 // ─── Main KPI Dashboard ────────────────────────────────────────────────────────
 
-export const KpiDashboard: React.FC<KpiDashboardProps> = ({ currentUser }) => {
+export const KpiDashboard: React.FC<KpiDashboardProps> = ({ currentUser, team }) => {
+  const [selectedUserId, setSelectedUserId] = useState<string>(currentUser.id!);
+  const [selectedUserRole, setSelectedUserRole] = useState<User['role']>(currentUser.role);
+  const [selectedUserName, setSelectedUserName] = useState<string>(currentUser.name);
+
   const { kpis, thresholds, loading, error, refetch, updateManualKpi, updateThreshold } = useKpis(
-    currentUser.id!,
-    currentUser.role
+    selectedUserId,
+    selectedUserRole
   );
 
   const [editingKpi, setEditingKpi] = useState<KpiResult | null>(null);
@@ -203,8 +208,8 @@ export const KpiDashboard: React.FC<KpiDashboardProps> = ({ currentUser }) => {
   const now = new Date();
   const currentMonthLabel = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
 
-  const roleGradient = ROLE_COLORS[currentUser.role] || ROLE_COLORS['Colaborador'];
-  const roleIcon = ROLE_ICONS[currentUser.role] || 'person';
+  const roleGradient = ROLE_COLORS[selectedUserRole] || ROLE_COLORS['Colaborador'];
+  const roleIcon = ROLE_ICONS[selectedUserRole] || 'person';
 
   const showMessage = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -297,11 +302,39 @@ export const KpiDashboard: React.FC<KpiDashboardProps> = ({ currentUser }) => {
             </div>
             <div>
               <p className="text-white/70 text-xs font-black uppercase tracking-widest mb-1">Dashboard de KPIs</p>
-              <h1 className="text-2xl lg:text-3xl font-black">{currentUser.name}</h1>
-              <p className="text-white/80 text-sm font-medium mt-0.5">{currentUser.role}</p>
+              <h1 className="text-2xl lg:text-3xl font-black">{selectedUserName}</h1>
+              <p className="text-white/80 text-sm font-medium mt-0.5">{selectedUserRole}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {['Gestor de Projetos', 'Gestor Técnico', 'Gestor de Trading'].includes(currentUser.role) && team && (
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-4 py-2 flex items-center">
+                <select
+                  className="bg-transparent text-white font-bold text-sm outline-none cursor-pointer"
+                  value={selectedUserId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (id === currentUser.id) {
+                      setSelectedUserId(currentUser.id);
+                      setSelectedUserRole(currentUser.role);
+                      setSelectedUserName(currentUser.name);
+                    } else {
+                      const member = team.find(m => m.id === id);
+                      if (member) {
+                        setSelectedUserId(member.id);
+                        setSelectedUserRole(member.role as any);
+                        setSelectedUserName(member.name);
+                      }
+                    }
+                  }}
+                >
+                  <option value={currentUser.id} className="text-black">{currentUser.name} (Eu)</option>
+                  {team.map(m => (
+                    <option key={m.id} value={m.id} className="text-black">{m.name} ({m.role})</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-4 py-2.5 text-center">
               <p className="text-white/70 text-[9px] font-black uppercase tracking-widest">Período</p>
               <p className="text-white font-black text-sm">{currentMonthLabel}</p>

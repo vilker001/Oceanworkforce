@@ -42,6 +42,7 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
   });
 
   const [urgencyFilter, setUrgencyFilter] = useState<string>('Todos');
+  const [taskTypeFilter, setTaskTypeFilter] = useState<'Todas' | 'Operacionais' | 'CRM'>('Todas');
 
   const columns: string[] = ['Por Alocar', 'Backlog', 'ToDo', 'InProgress', 'Review', 'Done'];
 
@@ -139,15 +140,15 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
     'Crítica': { color: 'text-red-600',    bg: 'bg-red-50 dark:bg-red-950/30',       icon: 'priority_high' },
   };
 
-  // Filter tasks by urgency and unassigned
-  const filteredTasks = (col: string) => {
-    let list = tasks;
-    if (col === 'Por Alocar') {
-      list = list.filter(t => !t.responsible);
-    } else {
-      list = list.filter(t => t.status === col && !!t.responsible);
-    }
+  const filteredTasks = (status: string) => {
+    let list = tasks.filter(t => t.status === status);
+    if (status === 'Por Alocar') list = tasks.filter(t => !t.responsible);
     if (urgencyFilter !== 'Todos') list = list.filter(t => t.urgency === urgencyFilter);
+    if (taskTypeFilter === 'CRM') {
+      list = list.filter(t => t.project.toLowerCase().includes('crm'));
+    } else if (taskTypeFilter === 'Operacionais') {
+      list = list.filter(t => !t.project.toLowerCase().includes('crm'));
+    }
     return list;
   };
 
@@ -178,19 +179,34 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
         </button>
       </div>
 
-      {/* Urgency Filter Bar */}
-      <div className="flex gap-2 items-center flex-wrap">
-        <span className="text-[10px] font-black uppercase tracking-widest text-text-sub">Urgência:</span>
-        {['Todos', 'Crítica', 'Alta', 'Média', 'Baixa'].map(u => (
-          <button key={u} onClick={() => setUrgencyFilter(u)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-              urgencyFilter === u 
-                ? 'bg-primary text-white shadow-sm shadow-primary/20' 
-                : 'bg-gray-100 dark:bg-zinc-800 text-text-sub hover:bg-gray-200 dark:hover:bg-zinc-700'
-            }`}>
-            {u === 'Crítica' ? '🔴 ' : u === 'Alta' ? '🟠 ' : u === 'Média' ? '🔵 ' : u === 'Baixa' ? '⚪ ' : ''}{u}
-          </button>
-        ))}
+      {/* Filters Bar */}
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="flex gap-2 items-center flex-wrap">
+          <span className="text-[10px] font-black uppercase tracking-widest text-text-sub">Tipo:</span>
+          {['Todas', 'Operacionais', 'CRM'].map(t => (
+            <button key={t} onClick={() => setTaskTypeFilter(t as any)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                taskTypeFilter === t 
+                  ? 'bg-primary text-white shadow-sm shadow-primary/20' 
+                  : 'bg-gray-100 dark:bg-zinc-800 text-text-sub hover:bg-gray-200 dark:hover:bg-zinc-700'
+              }`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center flex-wrap">
+          <span className="text-[10px] font-black uppercase tracking-widest text-text-sub">Urgência:</span>
+          {['Todos', 'Crítica', 'Alta', 'Média', 'Baixa'].map(u => (
+            <button key={u} onClick={() => setUrgencyFilter(u)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                urgencyFilter === u 
+                  ? 'bg-primary text-white shadow-sm shadow-primary/20' 
+                  : 'bg-gray-100 dark:bg-zinc-800 text-text-sub hover:bg-gray-200 dark:hover:bg-zinc-700'
+              }`}>
+              {u === 'Crítica' ? '🔴 ' : u === 'Alta' ? '🟠 ' : u === 'Média' ? '🔵 ' : u === 'Baixa' ? '⚪ ' : ''}{u}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Dashboard Pessoal do Responsável */}
@@ -264,81 +280,58 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                 <div
                   key={task.id}
                   onClick={() => { setSelectedTask(task); setIsDetailOpen(true); }}
-                  className={`bg-white dark:bg-zinc-900/80 backdrop-blur-sm p-5 rounded-2xl border ${
+                  className={`bg-white dark:bg-zinc-900/80 backdrop-blur-sm p-3 rounded-xl border ${
                     task.isLate ? 'border-red-300 dark:border-red-900/50 shadow-red-500/10' :
                     task.priority === 'CRÍTICA' ? 'border-red-500 dark:border-red-500 shadow-md shadow-red-500/20' :
                     task.priority === 'ALTA' ? 'border-orange-500 dark:border-orange-500 shadow-sm shadow-orange-500/10' :
                     'border-gray-100 dark:border-zinc-800'
-                  } shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden`}
+                  } shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group relative overflow-hidden`}
                 >
-                  <div className={`absolute top-0 left-0 w-1.5 h-full ${task.priority === 'CRÍTICA' ? 'bg-red-600 animate-pulse' :
+                  <div className={`absolute top-0 left-0 w-1 h-full ${task.priority === 'CRÍTICA' ? 'bg-red-600 animate-pulse' :
                     task.priority === 'ALTA' ? 'bg-orange-500' :
                       task.priority === 'MÉDIA' ? 'bg-blue-500' : 'bg-gray-300'
                     }`}></div>
 
-                  <div className="flex justify-between items-start mb-3 gap-2">
-                    <span className={`text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider ${priorityColors[task.priority]}`}>
+                  <div className="flex justify-between items-start mb-2 gap-2 pl-2">
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-wider ${priorityColors[task.priority]}`}>
                       {task.priority}
                     </span>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-0.5">
                       {task.isLate && (
-                        <span className="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest animate-pulse border border-red-200 dark:border-red-800 whitespace-nowrap">
+                        <span className="text-red-500 text-[8px] font-black uppercase tracking-widest animate-pulse whitespace-nowrap">
                           🚨 Atrasada
                         </span>
                       )}
-                      <span className="text-[10px] font-bold text-text-sub">#{task.id}</span>
+                      <span className="text-[9px] font-bold text-text-sub">#{task.id.slice(0, 8)}</span>
                     </div>
                   </div>
 
-                  <h4 className="text-sm font-black mb-1 leading-snug group-hover:text-primary transition-colors">{task.title}</h4>
-                  <p className="text-[10px] text-text-sub uppercase font-black tracking-widest mb-2 opacity-70">{task.project}</p>
+                  <h4 className="text-xs font-black mb-1 leading-snug group-hover:text-primary transition-colors pl-2 truncate">{task.title}</h4>
+                  <p className="text-[9px] text-text-sub uppercase font-black tracking-widest mb-2 opacity-70 pl-2 truncate">{task.project}</p>
 
-                  <div className="flex flex-wrap gap-2 mb-3 items-center">
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded uppercase">
-                      <span className="material-symbols-outlined text-[10px] filled">star</span>
-                      Rel: {task.relevance}/5
+                  <div className="flex justify-between items-center mb-3 pl-2">
+                    <span className="text-[9px] font-bold text-text-sub flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[10px]">event</span> {formatDate(task.dueDate)}
                     </span>
-                    {task.urgency && task.urgency !== 'Média' && (
-                      <span className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${urgencyConfig[task.urgency]?.bg || ''} ${urgencyConfig[task.urgency]?.color || ''}`}>
-                        <span className="material-symbols-outlined text-[10px]">{urgencyConfig[task.urgency]?.icon}</span>
-                        {task.urgency}
-                      </span>
-                    )}
-                    {task.delegated_by_name && (
-                      <span className="text-[9px] font-bold text-text-sub dark:text-zinc-400 bg-gray-50 dark:bg-zinc-800 px-1.5 py-0.5 rounded uppercase">
-                        📌 {task.delegated_by_name}
+                    {task.objectives.length > 0 && (
+                      <span className="text-[9px] font-bold text-text-sub flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[10px]">check_box</span> {task.objectives.filter(o => o.completed).length}/{task.objectives.length}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 mb-4 bg-gray-50/50 dark:bg-zinc-800/30 p-2 rounded-xl border border-gray-100/50 dark:border-zinc-800/20">
-                    <span className="material-symbols-outlined text-sm text-text-sub">event</span>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-bold text-text-sub uppercase tracking-tighter">Início: {formatDate(task.startDate)}</span>
-                      <span className="text-[10px] font-black text-red-500 uppercase tracking-tighter">Deadline: {formatDate(task.dueDate)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-50 dark:border-zinc-800/50">
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-50 dark:border-zinc-800/50 pl-2">
                     {!task.responsible ? (
                       <div className="flex items-center gap-2">
                         {isAnyManager ? (
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailOpen(true); }} className="text-[10px] font-bold bg-primary text-white px-2 py-1 rounded hover:bg-primary/90">Delegar</button>
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailOpen(true); }} className="text-[9px] font-bold bg-primary text-white px-1.5 py-0.5 rounded hover:bg-primary/90">Delegar</button>
                         ) : null}
-                        <button onClick={(e) => { e.stopPropagation(); handleClaimTask(task); }} className="text-[10px] font-bold bg-gray-200 dark:bg-zinc-700 text-text-sub px-2 py-1 rounded hover:bg-gray-300 dark:hover:bg-zinc-600">Assumir Tarefa</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleClaimTask(task); }} className="text-[9px] font-bold bg-gray-200 dark:bg-zinc-700 text-text-sub px-1.5 py-0.5 rounded hover:bg-gray-300 dark:hover:bg-zinc-600">Assumir</button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <img src={allTeamMembers.find(m => m.name === task.responsible)?.avatar || DEFAULT_AVATAR} className="size-6 rounded-lg object-cover" alt="" />
-                        <span className="text-[10px] font-bold truncate max-w-[80px]">{task.responsible}</span>
-                      </div>
-                    )}
-                    {task.objectives.length > 0 && (
-                      <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg">
-                        <span className="material-symbols-outlined text-xs text-primary filled">check_circle</span>
-                        <span className="text-[10px] font-black text-text-sub">
-                          {task.objectives.filter(o => o.completed).length}/{task.objectives.length}
-                        </span>
+                      <div className="flex items-center gap-1.5">
+                        <img src={allTeamMembers.find(m => m.name === task.responsible)?.avatar || DEFAULT_AVATAR} className="size-5 rounded object-cover" alt="" />
+                        <span className="text-[9px] font-bold truncate max-w-[60px]">{task.responsible}</span>
                       </div>
                     )}
                   </div>

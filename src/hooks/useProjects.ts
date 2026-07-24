@@ -96,8 +96,29 @@ export const useProjects = () => {
 
     const updateProject = async (id: string, updates: Partial<Project>) => {
         const { stages, client_name, ...rest } = updates as any;
+
+        const { data: currentProject } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        const isCompleting = updates.status === 'Concluido' && currentProject && currentProject.status !== 'Concluido';
+
         const { error: err } = await supabase.from('projects').update({ ...rest, updated_at: new Date().toISOString() }).eq('id', id);
         if (err) throw err;
+
+        if (isCompleting) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('xp_history').insert({
+                    user_id: user.id,
+                    xp_amount: 500, // Big XP for completing a whole project
+                    reason: `Projeto Concluído: ${currentProject.name}`
+                });
+            }
+        }
+
         await fetchProjects();
     };
 
@@ -142,6 +163,26 @@ export const useProjects = () => {
                 title: `Etapa Concluída: ${currentStage.name}`,
                 description: `O colaborador ${worker?.name || 'responsável'} concluiu a etapa designada.`
             } as any);
+        }
+
+        if (isCompleting && currentStage) {
+            const targetUserId = updates.responsible_id || currentStage.responsible_id;
+            if (targetUserId) {
+                await supabase.from('xp_history').insert({
+                    user_id: targetUserId,
+                    xp_amount: 150,
+                    reason: `Etapa de Projeto concluída: ${currentStage.name}`
+                });
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await supabase.from('xp_history').insert({
+                        user_id: user.id,
+                        xp_amount: 150,
+                        reason: `Etapa de Projeto concluída: ${currentStage.name}`
+                    });
+                }
+            }
         }
 
         await fetchProjects();

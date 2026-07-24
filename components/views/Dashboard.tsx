@@ -475,7 +475,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
             <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl p-6">
               <h3 className="text-xs font-black uppercase tracking-widest text-text-sub mb-4">Próximos Acompanhamentos (Follow-ups)</h3>
               <div className="space-y-3">
-                {clients.filter(c => c.nextFollowUpDate).slice(0, 4).map((c) => (
+                {clients.filter(c => {
+                  if (!c.nextFollowUpDate) return false;
+                  const followDate = new Date(c.nextFollowUpDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return followDate >= today;
+                }).sort((a, b) => new Date(a.nextFollowUpDate!).getTime() - new Date(b.nextFollowUpDate!).getTime()).slice(0, 4).map((c) => (
                   <div key={c.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-xl">
                     <div>
                       <p className="text-xs font-black">{c.name}</p>
@@ -486,8 +492,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
                     </span>
                   </div>
                 ))}
+                {clients.filter(c => {
+                  if (!c.nextFollowUpDate) return false;
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  return new Date(c.nextFollowUpDate) >= today;
+                }).length === 0 && (
+                  <p className="text-xs text-text-sub italic">Nenhum follow-up agendado para os próximos dias.</p>
+                )}
               </div>
             </div>
+
           </div>
         </div>
       )}

@@ -444,9 +444,10 @@ const App: React.FC = () => {
           tasks={tasksHook.tasks}
           userRole={user.role}
           onDeleteEvent={async (id) => { await eventsHook.deleteEvent(id); }}
+          team={teamHook.team}
         />;
       case View.KPI_SETUP:
-        return <KpiDashboard currentUser={user} />;
+        return <KpiDashboard currentUser={user} team={teamHook.team} />;
       case View.FINANCE:
         return <FinancialManagement
           transactions={transactionsHook.transactions}

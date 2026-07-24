@@ -92,7 +92,45 @@ export const useTasks = () => {
                 };
             });
 
-            setTasks(transformedTasks);
+            // Fetch Project Stages
+            const { data: stagesData } = await supabase
+                .from('project_stages')
+                .select('*, project:projects(name)')
+                .order('start_date', { ascending: false });
+
+            const transformedStages: Task[] = (stagesData || []).map((stage: any) => {
+                let isLate = false;
+                if (stage.status !== 'Concluido') {
+                    const dueDate = new Date(stage.due_date);
+                    dueDate.setHours(23, 59, 59, 999);
+                    if (dueDate < new Date()) {
+                        isLate = true;
+                    }
+                }
+
+                const statusMap: any = { 'A Fazer': 'ToDo', 'Em Progresso': 'InProgress', 'Concluido': 'Done' };
+
+                return {
+                    id: `stage-${stage.id}`,
+                    title: stage.name,
+                    project: stage.project?.name || 'Projeto Desconhecido',
+                    status: statusMap[stage.status] || 'ToDo',
+                    priority: 'ALTA',
+                    responsible: stage.responsible_name || 'Sem responsável',
+                    startDate: stage.start_date,
+                    dueDate: stage.due_date,
+                    objectives: stage.objectives || [],
+                    isLate,
+                    relevance: stage.relevance || 4,
+                    delegated_by: stage.delegated_by,
+                    delegated_by_name: 'Gestor',
+                    urgency: 'Alta',
+                    completed_at: stage.completed_at
+                };
+            });
+
+            const allTasks = [...transformedTasks, ...transformedStages].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+            setTasks(allTasks);
             setError(null);
         } catch (err: any) {
             console.error('Error fetching tasks:', err);
@@ -170,6 +208,59 @@ export const useTasks = () => {
 
     const updateTask = async (id: string, updates: Partial<Task>) => {
         try {
+            if (id.startsWith('stage-')) {
+                const realId = id.replace('stage-', '');
+                
+                const { data: currentStage } = await supabase
+                    .from('project_stages')
+                    .select('*')
+                    .eq('id', realId)
+                    .single();
+
+                const invStatusMap: any = { 'ToDo': 'A Fazer', 'InProgress': 'Em Progresso', 'Review': 'Em Progresso', 'Done': 'Concluido', 'Backlog': 'A Fazer' };
+                const newStatus = updates.status ? invStatusMap[updates.status] : undefined;
+
+                const isCompleting = newStatus === 'Concluido' && currentStage && currentStage.status !== 'Concluido';
+                const completed_at = isCompleting ? new Date().toISOString() : undefined;
+
+                let respId = currentStage?.responsible_id;
+                let respName = currentStage?.responsible_name;
+                if (updates.responsible) {
+                    const { data: users } = await supabase.from('users').select('id, name').eq('name', updates.responsible).single();
+                    respId = users?.id || null;
+                    respName = users?.name || updates.responsible;
+                }
+
+                const { error: updateError } = await supabase
+                    .from('project_stages')
+                    .update({
+                        ...(updates.title && { name: updates.title }),
+                        ...(newStatus && { status: newStatus }),
+                        ...(updates.startDate && { start_date: updates.startDate }),
+                        ...(updates.dueDate && { due_date: updates.dueDate }),
+                        ...(updates.objectives && { objectives: updates.objectives as any }),
+                        ...(updates.responsible && { responsible_id: respId, responsible_name: respName }),
+                        ...(completed_at && { completed_at })
+                    })
+                    .eq('id', realId);
+
+                if (updateError) throw updateError;
+
+                if (isCompleting && currentStage) {
+                    const targetUserId = respId || currentStage.responsible_id;
+                    if (targetUserId) {
+                        await supabase.from('xp_history').insert({
+                            user_id: targetUserId,
+                            xp_amount: 150,
+                            reason: `Etapa de Projeto concluída: ${currentStage.name}`
+                        });
+                    }
+                }
+                
+                await fetchTasks();
+                return;
+            }
+
             let responsible_id = undefined;
 
             if (updates.responsible) {
@@ -269,12 +360,18 @@ export const useTasks = () => {
 
     const deleteTask = async (id: string) => {
         try {
-            const { error: deleteError } = await supabase
-                .from('tasks')
-                .delete()
-                .eq('id', id);
+            if (id.startsWith('stage-')) {
+                const realId = id.replace('stage-', '');
+                const { error: deleteError } = await supabase.from('project_stages').delete().eq('id', realId);
+                if (deleteError) throw deleteError;
+            } else {
+                const { error: deleteError } = await supabase
+                    .from('tasks')
+                    .delete()
+                    .eq('id', id);
 
-            if (deleteError) throw deleteError;
+                if (deleteError) throw deleteError;
+            }
 
             await fetchTasks();
         } catch (err: any) {

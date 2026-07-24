@@ -136,6 +136,10 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   const [newFollowUpAdvances, setNewFollowUpAdvances] = useState(false);
   const [savingFollowUp, setSavingFollowUp] = useState(false);
 
+  const [editingFollowUpId, setEditingFollowUpId] = useState<string | null>(null);
+  const [editFollowUpNotes, setEditFollowUpNotes] = useState('');
+  const [editFollowUpNextDate, setEditFollowUpNextDate] = useState('');
+
   const fetchFollowUps = async (clientId: string) => {
     setLoadingFollowUps(true);
     try {
@@ -524,6 +528,41 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
       alert('Erro ao registar follow-up.');
     } finally {
       setSavingFollowUp(false);
+    }
+  };
+
+  const handleEditFollowUpClick = (fu: FollowUp) => {
+    setEditingFollowUpId(fu.id);
+    setEditFollowUpNotes(fu.notes);
+    setEditFollowUpNextDate(fu.next_follow_up_date ? fu.next_follow_up_date.slice(0, 16) : ''); // format to local datetime-local
+  };
+
+  const handleSaveFollowUpEdit = async () => {
+    if (!editingFollowUpId || !editFollowUpNotes) return;
+    try {
+      let nextDate = editFollowUpNextDate;
+      if (nextDate && nextDate.includes('T') && !nextDate.includes('+') && !nextDate.includes('Z')) {
+        const localDate = new Date(nextDate);
+        const tzOffset = -localDate.getTimezoneOffset();
+        const sign = tzOffset >= 0 ? '+' : '-';
+        const pad = (n: number) => String(Math.abs(n)).padStart(2, '0');
+        const offsetStr = `${sign}${pad(Math.floor(Math.abs(tzOffset) / 60))}:${pad(Math.abs(tzOffset) % 60)}`;
+        nextDate = nextDate + offsetStr;
+      }
+      
+      const { error: updateErr } = await supabase
+        .from('follow_ups')
+        .update({
+          notes: editFollowUpNotes,
+          next_follow_up_date: nextDate || null,
+        } as any)
+        .eq('id', editingFollowUpId);
+      if (updateErr) throw updateErr;
+
+      setFollowUps(prev => prev.map(fu => fu.id === editingFollowUpId ? { ...fu, notes: editFollowUpNotes, next_follow_up_date: nextDate || '' } : fu));
+      setEditingFollowUpId(null);
+    } catch (e) {
+      alert('Erro ao atualizar follow-up');
     }
   };
 
@@ -1178,21 +1217,51 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                 ) : (
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
                     {followUps.map(fu => (
-                      <div key={fu.id} className="p-3 bg-gray-50/50 dark:bg-zinc-800/20 border border-gray-100 dark:border-zinc-850 rounded-2xl flex flex-col gap-1">
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                            {fu.current_stage}
-                          </span>
-                          <span className="text-[9px] text-text-sub">
-                            {new Date(fu.created_at).toLocaleDateString('pt-MZ')}
-                          </span>
-                        </div>
-                        <p className="text-xs text-text-main dark:text-gray-300 mt-1">{fu.notes}</p>
-                        {fu.next_follow_up_date && (
-                          <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold mt-1 uppercase flex items-center gap-0.5">
-                            <span className="material-symbols-outlined text-[10px]">event</span>
-                            Seguinte: {new Date(fu.next_follow_up_date).toLocaleString('pt-MZ', { dateStyle: 'short', timeStyle: 'short' }).replace(',', ' às')}
-                          </p>
+                      <div key={fu.id} className="p-3 bg-gray-50/50 dark:bg-zinc-800/20 border border-gray-100 dark:border-zinc-850 rounded-2xl flex flex-col gap-2">
+                        {editingFollowUpId === fu.id ? (
+                          <div className="flex flex-col gap-2">
+                            <textarea
+                              className="w-full bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-750 rounded-xl p-2 text-xs outline-none focus:ring-2 focus:ring-primary"
+                              rows={2}
+                              value={editFollowUpNotes}
+                              onChange={e => setEditFollowUpNotes(e.target.value)}
+                            />
+                            <input
+                              type="datetime-local"
+                              className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-750 rounded-xl p-2 text-xs outline-none"
+                              value={editFollowUpNextDate}
+                              onChange={e => setEditFollowUpNextDate(e.target.value)}
+                            />
+                            <div className="flex justify-end gap-2 mt-1">
+                              <button onClick={() => setEditingFollowUpId(null)} className="px-2 py-1 text-[10px] font-bold bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancelar</button>
+                              <button onClick={handleSaveFollowUpEdit} className="px-2 py-1 text-[10px] font-bold bg-primary text-white rounded-lg hover:bg-primary/90">Guardar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                {fu.current_stage}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] text-text-sub">
+                                  {new Date(fu.created_at).toLocaleDateString('pt-MZ')}
+                                </span>
+                                {canEditCurrentClient && (
+                                  <button onClick={() => handleEditFollowUpClick(fu)} className="text-text-sub hover:text-primary transition-colors">
+                                    <span className="material-symbols-outlined text-[12px]">edit</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-xs text-text-main dark:text-gray-300 mt-1">{fu.notes}</p>
+                            {fu.next_follow_up_date && (
+                              <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold mt-1 uppercase flex items-center gap-0.5">
+                                <span className="material-symbols-outlined text-[10px]">event</span>
+                                Seguinte: {new Date(fu.next_follow_up_date).toLocaleString('pt-MZ', { dateStyle: 'short', timeStyle: 'short' }).replace(',', ' às')}
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     ))}

@@ -448,6 +448,39 @@ const calcPromoter = async (
   ];
 };
 
+const calcColaborador = async (
+  userId: string,
+  thresholds: KpiThreshold[],
+  manualValues: ManualKpiEntry[]
+): Promise<KpiResult[]> => {
+  const thr = (key: string) => thresholds.find(t => t.kpi_key === key);
+
+  const [tasksRes, prevTasksRes, xpRes] = await Promise.all([
+    supabase.from('tasks').select('id, status, due_date, created_at, completed_at').eq('responsible_id', userId).gte('created_at', monthStart()).lte('created_at', monthEnd()),
+    supabase.from('tasks').select('id, status').eq('responsible_id', userId).gte('created_at', prevMonthStart()).lte('created_at', prevMonthEnd()),
+    supabase.from('xp_history').select('xp_amount').eq('user_id', userId).gte('created_at', monthStart()).lte('created_at', monthEnd()),
+  ]);
+
+  const tasks = tasksRes.data || [];
+  const prevTasks = prevTasksRes.data || [];
+  const xpData = xpRes.data || [];
+
+  const completed = tasks.filter(t => t.status === 'Done');
+  const totalTasks = tasks.length;
+  const taxaConclusao = totalTasks > 0 ? (completed.length / totalTasks) * 100 : 0;
+  
+  const prevCompleted = prevTasks.filter(t => t.status === 'Done');
+  const prevTaxaConclusao = prevTasks.length > 0 ? (prevCompleted.length / prevTasks.length) * 100 : undefined;
+
+  const xpGanho = xpData.reduce((s, x) => s + x.xp_amount, 0);
+
+  return [
+    makeKpi({ key: 'tarefas_concluidas', label: 'Tarefas Concluídas', description: 'Tarefas concluídas neste mês', icon: 'task_alt', value: completed.length, previousValue: prevCompleted.length, unit: 'count', isManual: false, chartType: 'none', threshold: thr('tarefas_concluidas') }),
+    makeKpi({ key: 'taxa_conclusao', label: 'Taxa de Conclusão', description: 'Tarefas concluídas vs atribuídas', icon: 'percent', value: taxaConclusao, previousValue: prevTaxaConclusao, unit: 'percent', isManual: false, chartType: 'none', threshold: thr('taxa_conclusao') }),
+    makeKpi({ key: 'xp_mensal', label: 'XP Ganho', description: 'Total de XP ganho este mês', icon: 'stars', value: xpGanho, unit: 'count', isManual: false, chartType: 'none', threshold: undefined }),
+  ];
+};
+
 // ─── Main Hook ────────────────────────────────────────────────────────────────
 
 export const useKpis = (userId: string, userRole: UserRole) => {
@@ -479,6 +512,7 @@ export const useKpis = (userId: string, userRole: UserRole) => {
         case 'Gestor de Trading': results = await calcGestorTrading(userId, thresholds, manualValues); break;
         case 'Fotógrafo': results = await calcFotografo(userId, thresholds, manualValues); break;
         case 'Promotor de Venda': results = await calcPromoter(userId, thresholds, manualValues); break;
+        case 'Colaborador': results = await calcColaborador(userId, thresholds, manualValues); break;
         default: results = [];
       }
       setKpis(results);

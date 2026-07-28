@@ -461,7 +461,11 @@ const App: React.FC = () => {
       case View.PROJECTS:
         return <Projects currentUser={user} />;
       case View.PHOTO_SESSIONS:
-        return <PhotoSessions currentUser={user} />;
+        return <PhotoSessions 
+          currentUser={user} 
+          transactions={transactionsHook.transactions}
+          onAddTransaction={async (t) => { await transactionsHook.createTransaction(t); }}
+        />;
       case View.TRADING:
         return <Trading />;
       case View.RANKING:

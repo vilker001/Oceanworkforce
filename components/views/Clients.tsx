@@ -534,7 +534,17 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   const handleEditFollowUpClick = (fu: FollowUp) => {
     setEditingFollowUpId(fu.id);
     setEditFollowUpNotes(fu.notes);
-    setEditFollowUpNextDate(fu.next_follow_up_date ? fu.next_follow_up_date.slice(0, 16) : ''); // format to local datetime-local
+    let formatted = '';
+    if (fu.next_follow_up_date) {
+      try {
+        const d = new Date(fu.next_follow_up_date);
+        if (!isNaN(d.getTime())) {
+          const offset = d.getTimezoneOffset() * 60000;
+          formatted = (new Date(d.getTime() - offset)).toISOString().slice(0, 16);
+        }
+      } catch (e) {}
+    }
+    setEditFollowUpNextDate(formatted);
   };
 
   const handleSaveFollowUpEdit = async () => {
@@ -828,7 +838,17 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                           <div className="size-6 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-[8px] font-bold">
                             {client.responsible[0]}
                           </div>
-                          <span className="text-[11px] font-medium">{client.responsible}</span>
+                          {['Gestor de Projetos', 'Gestor de Trading'].includes(user.role) ? (
+                            <select
+                              value={client.responsible}
+                              onChange={(e) => onUpdateClient(client.id, { responsible: e.target.value })}
+                              className="text-[11px] font-medium bg-transparent border-none focus:ring-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 rounded p-1"
+                            >
+                              {allTeamMembers.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+                            </select>
+                          ) : (
+                            <span className="text-[11px] font-medium">{client.responsible}</span>
+                          )}
                         </>
                       ) : (
                         <button

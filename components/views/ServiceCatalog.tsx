@@ -31,9 +31,12 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ currentUser }) =
   const { catalog, loading, addCatalogItem, deleteCatalogItem, refetchCatalog } = usePhotoSessions();
   const { confirm } = useConfirm();
 
-  const isManager = currentUser.role === 'Gestor de Projetos';
+  const isManager = ['Gestor de Projetos', 'Gestor Técnico'].includes(currentUser.role);
+  const isPhotographer = currentUser.role === 'Fotógrafo';
 
   const [activeTab, setActiveTab] = useState<'Ocean Group' | 'BMS Studio'>('Ocean Group');
+  
+  const canManageCurrentTab = activeTab === 'Ocean Group' ? isManager : (isManager || isPhotographer);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<ServiceCatalogItem | null>(null);
   const [saving, setSaving] = useState(false);
@@ -127,10 +130,10 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ currentUser }) =
           <h2 className="text-3xl font-black tracking-tight">Catálogo de Serviços</h2>
           <p className="text-text-sub text-sm mt-1">
             Todos os serviços e preços disponíveis na Ocean Group e BMS Studio.
-            {!isManager && <span className="ml-1 text-amber-600 dark:text-amber-400 font-semibold">Apenas visualização.</span>}
+            {!canManageCurrentTab && <span className="ml-1 text-amber-600 dark:text-amber-400 font-semibold">Apenas visualização.</span>}
           </p>
         </div>
-        {isManager && (
+        {canManageCurrentTab && (
           <button
             onClick={() => openAddModal(activeTab)}
             className="bg-primary hover:bg-primary/95 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
@@ -210,7 +213,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ currentUser }) =
           <div>
             <p className="font-black text-lg">Nenhum serviço encontrado</p>
             <p className="text-text-sub text-sm mt-1">
-              {isManager ? 'Clique em "Novo Serviço" para adicionar o primeiro serviço.' : 'O catálogo ainda não tem serviços registados.'}
+              {canManageCurrentTab ? 'Clique em "Novo Serviço" para adicionar o primeiro serviço.' : 'O catálogo ainda não tem serviços registados.'}
             </p>
           </div>
         </div>
@@ -229,7 +232,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ currentUser }) =
                     {activeTab === 'Ocean Group' ? 'hub' : 'photo_camera'}
                   </span>
                 </div>
-                {isManager && (
+                {canManageCurrentTab && (
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => openEditModal(item)}
@@ -270,7 +273,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ currentUser }) =
       )}
 
       {/* Footer note */}
-      {!isManager && (
+      {!canManageCurrentTab && (
         <div className="flex items-center gap-2 text-xs text-text-sub bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl px-4 py-3">
           <span className="material-symbols-outlined text-amber-500 text-sm">info</span>
           Para adicionar ou alterar preços, contacte o Gestor de Projetos.

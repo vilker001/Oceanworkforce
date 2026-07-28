@@ -2,29 +2,32 @@
 import React, { useState } from 'react';
 import { usePhotoSessions } from '../../src/hooks/usePhotoSessions';
 import { useTeam } from '../../src/hooks/useTeam';
-import { PhotoSession, ServiceCatalogItem } from '../../types';
-import { User } from '../../types';
+import { PhotoSession, ServiceCatalogItem, Transaction, User } from '../../types';
 import { useConfirm } from '../ui/ConfirmDialog';
 
 interface PhotoSessionsProps {
   currentUser: User;
+  transactions?: Transaction[];
+  onAddTransaction?: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
 }
 
 const locationLabels = { estúdio: 'Estúdio', exterior: 'Exterior' };
 
-export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => {
+export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser, transactions = [], onAddTransaction }) => {
   const { sessions, catalog, loading, createSession, completeSession, deleteSession, addCatalogItem, deleteCatalogItem } = usePhotoSessions();
   const { team } = useTeam();
   const { confirm } = useConfirm();
 
   const isManager = ['Gestor de Projetos', 'Gestor Técnico'].includes(currentUser.role);
   const isPhotographer = currentUser.role === 'Fotógrafo';
+  const canManageCatalog = isManager || isPhotographer;
 
   const [activeTab, setActiveTab] = useState<'sessions' | 'catalog'>('sessions');
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [showCatalogModal, setShowCatalogModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'Todos' | 'Agendada' | 'Executada'>('Todos');
+  const [mainTab, setMainTab] = useState<'Sessões' | 'Despesas' | 'Investimentos'>('Sessões');
 
   const [sessionForm, setSessionForm] = useState({
     service_type: '',
@@ -64,6 +67,9 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
     if (!sessionForm.service_type || !sessionForm.date || !sessionForm.client_name || !sessionForm.price_mt) return;
     setSaving(true);
     try {
+      const photogId = sessionForm.photographer_id || currentUser.id || '';
+      const resolvedPhotographer = team.find(m => m.id === photogId);
+      const resolvedName = resolvedPhotographer?.name || currentUser.name;
       await createSession({
         service_type: sessionForm.service_type,
         location_type: sessionForm.location_type,
@@ -75,8 +81,8 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
         price_mt: parseFloat(sessionForm.price_mt),
         notes: sessionForm.notes || undefined,
         status: 'Agendada',
-        photographer_id: sessionForm.photographer_id || currentUser.id,
-        photographer_name: undefined,
+        photographer_id: photogId,
+        photographer_name: resolvedName,
       });
       setShowSessionModal(false);
       setSessionForm({ service_type: '', location_type: 'estúdio', date: '', time: '10:00', duration_estimated: '60', client_name: '', client_phone: '', price_mt: '', notes: '', photographer_id: currentUser.id || '' });
@@ -108,6 +114,28 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
     } catch (e) { console.error(e); }
   };
 
+  const handleAllocateProfit = async (session: PhotoSession, type: 'expense' | 'investment') => {
+    if (!onAddTransaction) return;
+    const companyRevenue = session.price_mt * 0.5;
+    const desc = window.prompt(`Alocando MT ${companyRevenue} (Lucro da Empresa).\n\nDescrição para a ${type === 'expense' ? 'Despesa' : 'Poupança/Investimento'}:`);
+    if (!desc) return;
+    
+    try {
+      await onAddTransaction({
+        desc: `[Sessão ${session.service_type}] ${desc}`,
+        val: companyRevenue,
+        type: type,
+        cat: type === 'expense' ? 'Estúdio Fotográfico' : 'Poupança de Equipamento',
+        date: new Date().toISOString().split('T')[0],
+        status: 'Pago'
+      });
+      alert('Valor alocado com sucesso!');
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao alocar valor.');
+    }
+  };
+
   const totalRevenue = sessions.filter(s => s.status === 'Executada').reduce((sum, s) => sum + s.price_mt, 0);
   const myRevenue = sessions.filter(s => s.status === 'Executada' && s.photographer_id === currentUser.id).reduce((sum, s) => sum + s.price_mt * 0.5, 0);
 
@@ -120,7 +148,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
           <p className="text-sm text-text-sub">{sessions.filter(s => s.status === 'Agendada').length} agendadas · {sessions.filter(s => s.status === 'Executada').length} executadas</p>
         </div>
         <div className="flex gap-2">
-          {isManager && (
+          {canManageCatalog && (
             <button onClick={() => setShowCatalogModal(true)} className="flex items-center gap-2 border border-gray-200 dark:border-zinc-700 px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all">
               <span className="material-symbols-outlined text-base">menu_book</span> Catálogo
             </button>
@@ -133,7 +161,19 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Main Tabs */}
+      <div className="flex gap-2 border-b border-gray-100 dark:border-zinc-800 pb-2">
+        {(['Sessões', 'Despesas', 'Investimentos'] as const).map(t => (
+          <button key={t} onClick={() => setMainTab(t)}
+            className={`px-4 py-2 rounded-t-xl text-sm font-bold transition-all ${mainTab === t ? 'bg-primary/10 text-primary border-b-2 border-primary' : 'text-text-sub hover:bg-gray-50 dark:hover:bg-zinc-800'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {mainTab === 'Sessões' && (
+        <>
+          {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-4">
           <p className="text-[10px] font-black uppercase text-text-sub mb-1">Receita Total</p>
@@ -223,6 +263,16 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
                       Marcar Executada
                     </button>
                   )}
+                  {session.status === 'Executada' && isManager && onAddTransaction && (
+                    <div className="flex flex-col gap-1">
+                      <button onClick={() => handleAllocateProfit(session, 'expense')} className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-all">
+                        + Despesa Estúdio
+                      </button>
+                      <button onClick={() => handleAllocateProfit(session, 'investment')} className="text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded transition-all">
+                        + Poupança Equip.
+                      </button>
+                    </div>
+                  )}
                   {isManager && (
                     <button onClick={() => deleteSession(session.id)} className="p-1.5 hover:bg-red-50 rounded-lg">
                       <span className="material-symbols-outlined text-base text-red-400">delete</span>
@@ -232,6 +282,46 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser }) => 
               </div>
             </div>
           ))}
+        </div>
+      )}
+      </>
+      )}
+
+      {mainTab === 'Despesas' && (
+        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5">
+          <h3 className="font-black text-lg mb-4">Despesas do Estúdio</h3>
+          <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+            {transactions.filter(t => t.cat === 'Estúdio Fotográfico' && t.type === 'expense').length === 0 ? (
+              <p className="text-text-sub text-sm py-4">Nenhuma despesa registada.</p>
+            ) : transactions.filter(t => t.cat === 'Estúdio Fotográfico' && t.type === 'expense').map(t => (
+              <div key={t.id} className="py-3 flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-sm">{t.desc}</p>
+                  <p className="text-xs text-text-sub">{new Date(t.date).toLocaleDateString('pt-MZ')}</p>
+                </div>
+                <span className="font-black text-red-500">-MT {t.val.toLocaleString('pt-MZ')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {mainTab === 'Investimentos' && (
+        <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-5">
+          <h3 className="font-black text-lg mb-4">Investimentos e Poupança</h3>
+          <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+            {transactions.filter(t => t.cat === 'Poupança de Equipamento' && t.type === 'investment').length === 0 ? (
+              <p className="text-text-sub text-sm py-4">Nenhum investimento registado.</p>
+            ) : transactions.filter(t => t.cat === 'Poupança de Equipamento' && t.type === 'investment').map(t => (
+              <div key={t.id} className="py-3 flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-sm">{t.desc}</p>
+                  <p className="text-xs text-text-sub">{new Date(t.date).toLocaleDateString('pt-MZ')}</p>
+                </div>
+                <span className="font-black text-amber-600">MT {t.val.toLocaleString('pt-MZ')}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

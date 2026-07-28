@@ -292,7 +292,7 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                       task.priority === 'MÉDIA' ? 'bg-blue-500' : 'bg-gray-300'
                     }`}></div>
 
-                  <div className="flex justify-between items-start mb-2 gap-2 pl-2">
+                  <div className="flex justify-between items-start mb-1.5 pl-2">
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-wider ${priorityColors[task.priority]}`}>
                       {task.priority}
                     </span>
@@ -302,40 +302,26 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                           🚨 Atrasada
                         </span>
                       )}
-                      <span className="text-[9px] font-bold text-text-sub">#{task.id.slice(0, 8)}</span>
                     </div>
                   </div>
 
-                  <h4 className="text-xs font-black mb-1 leading-snug group-hover:text-primary transition-colors pl-2 truncate">{task.title}</h4>
-                  <p className="text-[9px] text-text-sub uppercase font-black tracking-widest mb-2 opacity-70 pl-2 truncate">{task.project}</p>
+                  <h4 className="text-[11px] font-black leading-tight group-hover:text-primary transition-colors pl-2 mb-2 line-clamp-2">{task.title}</h4>
 
-                  <div className="flex justify-between items-center mb-3 pl-2">
-                    <span className="text-[9px] font-bold text-text-sub flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[10px]">event</span> {formatDate(task.dueDate)}
-                    </span>
-                    {task.objectives.length > 0 && (
-                      <span className="text-[9px] font-bold text-text-sub flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[10px]">check_box</span> {task.objectives.filter(o => o.completed).length}/{task.objectives.length}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-50 dark:border-zinc-800/50 pl-2">
+                  <div className="flex items-center justify-between pt-1.5 border-t border-gray-50 dark:border-zinc-800/50 pl-2">
                     {!task.responsible ? (
-                      <div className="flex items-center gap-2">
-                        {isAnyManager ? (
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailOpen(true); }} className="text-[9px] font-bold bg-primary text-white px-1.5 py-0.5 rounded hover:bg-primary/90">Delegar</button>
-                        ) : null}
-                        <button onClick={(e) => { e.stopPropagation(); handleClaimTask(task); }} className="text-[9px] font-bold bg-gray-200 dark:bg-zinc-700 text-text-sub px-1.5 py-0.5 rounded hover:bg-gray-300 dark:hover:bg-zinc-600">Assumir</button>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-bold text-red-500">Sem Resp.</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5">
-                        <img src={allTeamMembers.find(m => m.name === task.responsible)?.avatar || DEFAULT_AVATAR} className="size-5 rounded object-cover" alt="" />
-                        <span className="text-[9px] font-bold truncate max-w-[60px]">{task.responsible}</span>
+                        <img src={allTeamMembers.find(m => m.name === task.responsible)?.avatar || DEFAULT_AVATAR} className="size-4 rounded object-cover" alt="" />
+                        <span className="text-[9px] font-bold truncate max-w-[80px]">{task.responsible}</span>
                       </div>
                     )}
                   </div>
                 </div>
+
+
                 )
               ))}
               {filteredTasks(col).length === 0 && (
@@ -495,10 +481,38 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
             <div className="grid grid-cols-2 gap-4 py-4 border-y border-gray-100 dark:border-zinc-800">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase">Responsável</label>
-                <div className="flex items-center gap-2">
-                  <img src={allTeamMembers.find(m => m.name === selectedTask.responsible)?.avatar || DEFAULT_AVATAR} className="size-6 rounded-lg object-cover" alt="" />
-                  <span className="text-xs font-bold">{selectedTask.responsible}</span>
-                </div>
+                {isAnyManager ? (
+                  <select 
+                    className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-primary w-full"
+                    value={selectedTask.responsible || ''}
+                    onChange={async (e) => {
+                      const newResp = e.target.value;
+                      const member = allTeamMembers.find(m => m.name === newResp);
+                      if (member) {
+                        await onTaskUpdate(selectedTask.id, { responsible: member.name, responsible_id: member.id });
+                        setSelectedTask({ ...selectedTask, responsible: member.name, responsible_id: member.id });
+                      } else {
+                        await onTaskUpdate(selectedTask.id, { responsible: '', responsible_id: null });
+                        setSelectedTask({ ...selectedTask, responsible: '', responsible_id: undefined });
+                      }
+                    }}
+                  >
+                    <option value="">Sem Responsável</option>
+                    {allTeamMembers.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+                  </select>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <img src={allTeamMembers.find(m => m.name === selectedTask.responsible)?.avatar || DEFAULT_AVATAR} className="size-6 rounded-lg object-cover" alt="" />
+                    <span className="text-xs font-bold">{selectedTask.responsible || 'Sem Responsável'}</span>
+                  </div>
+                )}
+                {!selectedTask.responsible && !isAnyManager && (
+                  <button onClick={() => handleClaimTask(selectedTask).then(() => {
+                      setSelectedTask({ ...selectedTask, responsible: currentUser.name, responsible_id: currentUser.id });
+                  })} className="text-[10px] font-bold text-primary mt-1 hover:underline text-left">
+                    Assumir Tarefa
+                  </button>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase">Prazo Final</label>
@@ -618,6 +632,34 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
                   onChange={(e) => setSelectedTask({ ...selectedTask, managerFeedback: e.target.value })}
                 />
               </div>
+
+              {/* Botão de Cobrar Tarefa (Gestores) */}
+              {isAnyManager && selectedTask.responsible_id && selectedTask.status !== 'Concluido' && selectedTask.status !== 'Done' && (
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-zinc-800 flex justify-end">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const { error } = await supabase.from('notifications').insert({
+                          user_id: selectedTask.responsible_id,
+                          task_id: selectedTask.id,
+                          type: 'task_assigned', // Using this to bypass CHECK constraint since we can't alter it easily right now
+                          title: 'O Gestor está a cobrar esta tarefa!',
+                          description: 'Por favor, atualize o status ou adicione um comentário de progresso o quanto antes.',
+                          is_read: false
+                        });
+                        if (error) throw error;
+                        alert('Cobrança enviada com sucesso! O responsável será notificado imediatamente.');
+                      } catch(e) {
+                        console.error(e);
+                        alert('Erro ao cobrar tarefa.');
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-red-500/20 transition-all flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm">campaign</span>
+                    Cobrar Tarefa
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

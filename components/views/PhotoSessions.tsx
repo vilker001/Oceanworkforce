@@ -31,7 +31,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser, trans
 
   const [sessionForm, setSessionForm] = useState({
     service_type: '',
-    location_type: 'estúdio' as 'estúdio' | 'exterior',
+    location_type: 'estudio' as 'estudio' | 'exterior',
     date: '',
     time: '10:00',
     duration_estimated: '60', // minutos
@@ -85,7 +85,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser, trans
         photographer_name: resolvedName,
       });
       setShowSessionModal(false);
-      setSessionForm({ service_type: '', location_type: 'estúdio', date: '', time: '10:00', duration_estimated: '60', client_name: '', client_phone: '', price_mt: '', notes: '', photographer_id: currentUser.id || '' });
+      setSessionForm({ service_type: '', location_type: 'estudio', date: '', time: '10:00', duration_estimated: '60', client_name: '', client_phone: '', price_mt: '', notes: '', photographer_id: currentUser.id || '' });
     } catch (e: any) { 
       console.error(e); 
       alert("Erro ao marcar sessão: " + (e.message || JSON.stringify(e)));
@@ -360,7 +360,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser, trans
                   <label className="text-xs font-bold text-text-sub uppercase mb-1 block">Localização</label>
                   <select value={sessionForm.location_type} onChange={e => setSessionForm(p => ({ ...p, location_type: e.target.value as any }))}
                     className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
-                    <option value="estúdio">Estúdio</option>
+                    <option value="estudio">Estúdio</option>
                     <option value="exterior">Exterior</option>
                   </select>
                 </div>

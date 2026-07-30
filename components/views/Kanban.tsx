@@ -3,6 +3,7 @@ import { Task } from '../../types';
 import { DEFAULT_AVATAR } from '../../constants';
 import { useConfirm } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/Toast';
+import { supabase } from '../../src/lib/supabase';
 
 interface KanbanProps {
   tasks: Task[];
@@ -43,6 +44,8 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
 
   const [urgencyFilter, setUrgencyFilter] = useState<string>('Todos');
   const [taskTypeFilter, setTaskTypeFilter] = useState<'Todas' | 'Operacionais' | 'CRM'>('Todas');
+
+  const [myTasksOnly, setMyTasksOnly] = useState(false);
 
   const columns: string[] = ['Por Alocar', 'Backlog', 'ToDo', 'InProgress', 'Review', 'Done'];
 
@@ -149,6 +152,9 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
     } else if (taskTypeFilter === 'Operacionais') {
       list = list.filter(t => !t.project.toLowerCase().includes('crm'));
     }
+    if (myTasksOnly) {
+      list = list.filter(t => t.responsible_id === currentUser.id || t.responsible === currentUser.name);
+    }
     return list;
   };
 
@@ -181,6 +187,17 @@ export const Kanban: React.FC<KanbanProps> = ({ tasks, onTaskCreate, onTaskUpdat
 
       {/* Filters Bar */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="flex gap-2 items-center flex-wrap">
+          <button onClick={() => setMyTasksOnly(!myTasksOnly)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+              myTasksOnly 
+                ? 'bg-primary text-white border-primary shadow-sm' 
+                : 'bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700 text-text-sub hover:bg-gray-50 dark:hover:bg-zinc-800'
+            }`}>
+            <span className="material-symbols-outlined text-sm">person</span>
+            Minhas Tarefas
+          </button>
+        </div>
         <div className="flex gap-2 items-center flex-wrap">
           <span className="text-[10px] font-black uppercase tracking-widest text-text-sub">Tipo:</span>
           {['Todas', 'Operacionais', 'CRM'].map(t => (

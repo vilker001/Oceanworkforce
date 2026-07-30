@@ -223,13 +223,8 @@ export const useTasks = () => {
                 const isCompleting = newStatus === 'Concluido' && currentStage && currentStage.status !== 'Concluido';
                 const completed_at = isCompleting ? new Date().toISOString() : undefined;
 
-                let respId = currentStage?.responsible_id;
-                let respName = currentStage?.responsible_name;
-                if (updates.responsible) {
-                    const { data: users } = await supabase.from('users').select('id, name').eq('name', updates.responsible).single();
-                    respId = users?.id || null;
-                    respName = users?.name || updates.responsible;
-                }
+                let respId = updates.responsible_id !== undefined ? updates.responsible_id : currentStage?.responsible_id;
+                let respName = updates.responsible !== undefined ? updates.responsible : currentStage?.responsible_name;
 
                 const { error: updateError } = await supabase
                     .from('project_stages')
@@ -239,7 +234,7 @@ export const useTasks = () => {
                         ...(updates.startDate && { start_date: updates.startDate }),
                         ...(updates.dueDate && { due_date: updates.dueDate }),
                         ...(updates.objectives && { objectives: updates.objectives as any }),
-                        ...(updates.responsible && { responsible_id: respId, responsible_name: respName }),
+                        ...(updates.responsible !== undefined && { responsible_id: respId, responsible_name: respName }),
                         ...(completed_at && { completed_at })
                     })
                     .eq('id', realId);
@@ -261,16 +256,20 @@ export const useTasks = () => {
                 return;
             }
 
-            let responsible_id = undefined;
+            let responsible_id = updates.responsible_id !== undefined ? updates.responsible_id : undefined;
 
-            if (updates.responsible) {
-                const { data: users } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('name', updates.responsible)
-                    .single();
+            if (responsible_id === undefined && updates.responsible !== undefined) {
+                if (updates.responsible) {
+                    const { data: users } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('name', updates.responsible)
+                        .single();
 
-                responsible_id = users?.id || null;
+                    responsible_id = users?.id || null;
+                } else {
+                    responsible_id = null;
+                }
             }
 
             // Fetch current task to see if status is changing to Done

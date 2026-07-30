@@ -117,13 +117,23 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser, trans
   const handleAllocateProfit = async (session: PhotoSession, type: 'expense' | 'investment') => {
     if (!onAddTransaction) return;
     const companyRevenue = session.price_mt * 0.5;
-    const desc = window.prompt(`Alocando MT ${companyRevenue} (Lucro da Empresa).\n\nDescrição para a ${type === 'expense' ? 'Despesa' : 'Poupança/Investimento'}:`);
+
+    const amountStr = window.prompt(`Alocação para ${type === 'expense' ? 'Despesa' : 'Poupança/Investimento'}.\nSaldo da empresa nesta sessão: MT ${companyRevenue}\n\nQuanto deseja alocar (MT)?`, companyRevenue.toString());
+    if (!amountStr) return;
+    
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0 || amount > companyRevenue) {
+      alert(`Valor inválido ou superior ao saldo disponível (MT ${companyRevenue}).`);
+      return;
+    }
+
+    const desc = window.prompt(`Alocando MT ${amount} para ${type === 'expense' ? 'Despesa' : 'Poupança/Investimento'}.\n\nDescrição:`);
     if (!desc) return;
     
     try {
       await onAddTransaction({
         desc: `[Sessão ${session.service_type}] ${desc}`,
-        val: companyRevenue,
+        val: amount,
         type: type,
         cat: type === 'expense' ? 'Estúdio Fotográfico' : 'Poupança de Equipamento',
         date: new Date().toISOString().split('T')[0],
@@ -263,7 +273,7 @@ export const PhotoSessions: React.FC<PhotoSessionsProps> = ({ currentUser, trans
                       Marcar Executada
                     </button>
                   )}
-                  {session.status === 'Executada' && isManager && onAddTransaction && (
+                  {session.status === 'Executada' && (isManager || isPhotographer) && onAddTransaction && (
                     <div className="flex flex-col gap-1">
                       <button onClick={() => handleAllocateProfit(session, 'expense')} className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-all">
                         + Despesa Estúdio

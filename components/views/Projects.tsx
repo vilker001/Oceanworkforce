@@ -590,17 +590,17 @@ export const Projects: React.FC<ProjectsProps> = ({ currentUser }) => {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-text-sub uppercase mb-1.5 block">Responsável</label>
+                <label className="text-xs font-bold text-text-sub uppercase mb-1.5 block">Responsável *</label>
                 <select value={stageResponsibleId} onChange={e => setStageResponsibleId(e.target.value)}
                   className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
-                  <option value="">Sem responsável / Eu mesmo</option>
+                  <option value="">Selecionar responsável...</option>
                   {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
 
               <div className="flex gap-3 pt-4 justify-end">
                 <button onClick={() => setShowStageModal(false)} className="px-4 py-2 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm font-bold">Cancelar</button>
-                <button onClick={handleCreateStage} disabled={savingStage || !stageName || !stageStart || !stageDue} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50">
+                <button onClick={handleCreateStage} disabled={savingStage || !stageName || !stageStart || !stageDue || !stageResponsibleId} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50">
                   Criar Etapa
                 </button>
               </div>

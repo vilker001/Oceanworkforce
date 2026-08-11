@@ -89,8 +89,8 @@ export const usePhotoSessions = () => {
             status: 'Recebido',
         });
 
-        // Award XP to photographer: price / 100, min 10
-        const xpEarned = Math.max(10, Math.floor(session.price_mt / 100));
+        // Award XP to photographer: 150 base + (price / 100)
+        const xpEarned = 150 + Math.floor(session.price_mt / 100);
         if (session.photographer_id) {
             await supabase.from('xp_history').insert({
                 user_id: session.photographer_id,

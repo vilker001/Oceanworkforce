@@ -511,6 +511,26 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
         lastActivity: newFollowUpNotes
       });
 
+      // Check for delay penalty
+      if (selectedClient.nextFollowUpDate) {
+        const today = new Date().toISOString().split('T')[0];
+        if (today > selectedClient.nextFollowUpDate) {
+           let targetUserId = authUser?.id;
+           // Find responsible ID if not self
+           if (selectedClient.responsible && selectedClient.responsible !== user.name) {
+              const { data: resUser } = await supabase.from('users').select('id').eq('name', selectedClient.responsible).single();
+              if (resUser) targetUserId = resUser.id;
+           }
+           if (targetUserId) {
+             await supabase.from('xp_history').insert({
+               user_id: targetUserId,
+               xp_amount: -50,
+               reason: `Penalização: Atraso no follow-up do lead: ${selectedClient.name}`
+             });
+           }
+        }
+      }
+
       await fetchFollowUps(selectedClient.id);
       setSelectedClient(prev => prev ? {
         ...prev,

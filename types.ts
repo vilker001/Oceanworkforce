@@ -17,6 +17,7 @@ export enum View {
   SERVICE_CATALOG = 'SERVICE_CATALOG',
   INVOICE_NEW = 'INVOICE_NEW',
   INVOICE_HISTORY = 'INVOICE_HISTORY',
+  DAILY_REPORTS = 'DAILY_REPORTS',
 }
 
 export type UserRole =
@@ -342,4 +343,20 @@ export interface Invoice {
   validade_dias?: number;
   created_at?: string;
   items?: InvoiceItem[];
+}
+
+// ========================
+// DAILY REPORTS
+// ========================
+export interface DailyReport {
+  id: string;
+  user_id: string;
+  date: string;
+  description: string;
+  hours_dedicated: number;
+  expected_output: string;
+  manager_feedback?: string;
+  created_at: string;
+  updated_at: string;
+  user_name?: string; // from join
 }

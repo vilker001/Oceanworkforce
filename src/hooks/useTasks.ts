@@ -329,6 +329,13 @@ export const useTasks = () => {
                               xp_amount: bonusAmount,
                               reason: `Bónus de Antecedência (+24h): Conclusão de tarefa: ${currentTask.title}`
                           });
+                        } else if (hoursBefore < 0) {
+                          // Late penalty
+                          await supabase.from('xp_history').insert({
+                              user_id: targetUserId,
+                              xp_amount: -50,
+                              reason: `Penalização: Atraso na conclusão da tarefa: ${currentTask.title}`
+                          });
                         }
                     }
                 }

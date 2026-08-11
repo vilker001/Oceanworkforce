@@ -22,6 +22,7 @@ import { Settings } from './components/views/Settings';
 import { ServiceCatalog } from './components/views/ServiceCatalog';
 import { InvoiceNew } from './components/views/InvoiceNew';
 import { InvoiceHistory } from './components/views/InvoiceHistory';
+import { DailyReports } from './components/views/DailyReports';
 
 
 import { DEFAULT_AVATAR } from './constants';
@@ -480,6 +481,8 @@ const App: React.FC = () => {
         return <InvoiceNew user={user} onNavigate={setCurrentView} />;
       case View.INVOICE_HISTORY:
         return <InvoiceHistory user={user} onNavigate={setCurrentView} />;
+      case View.DAILY_REPORTS:
+        return <DailyReports currentUser={user} />;
       default:
         return <Dashboard />;
 

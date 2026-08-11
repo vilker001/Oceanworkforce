@@ -50,6 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: View.PROJECTS, label: 'Projetos', icon: 'folder' },
     { id: View.KANBAN, label: 'Tarefas', icon: 'task' },
     { id: View.CALENDAR, label: 'Calendário', icon: 'calendar_today' },
+    { id: View.DAILY_REPORTS, label: 'Relatórios', icon: 'description' },
     { id: View.KPI_SETUP, label: 'Meus KPIs', icon: 'bar_chart' },
     ...((isProjectManager || user.role === 'Gestor Técnico' || isPhotographer) ? [
       { id: View.PHOTO_SESSIONS, label: 'Sessões BMS', icon: 'photo_camera' }

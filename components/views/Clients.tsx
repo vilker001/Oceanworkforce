@@ -36,6 +36,34 @@ interface ClientsProps {
   error?: string | null;
 }
 
+const DateTimePickerModal = ({ value, onChange, onClose }: { value: string, onChange: (val: string) => void, onClose: () => void }) => {
+  const [date, setDate] = useState(value ? value.split('T')[0] : '');
+  const [time, setTime] = useState(value ? value.split('T')[1]?.substring(0, 5) : '');
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+       <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-5 animate-in zoom-in-95 duration-200">
+         <h4 className="font-black text-lg text-primary text-center">Agendar Data e Hora</h4>
+         <div className="flex flex-col gap-3">
+           <div className="flex flex-col gap-1">
+             <label className="text-xs font-bold text-text-sub uppercase">Data</label>
+             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 focus:ring-2 focus:ring-primary outline-none" />
+           </div>
+           <div className="flex flex-col gap-1">
+             <label className="text-xs font-bold text-text-sub uppercase">Hora (Formato 24h)</label>
+             <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 focus:ring-2 focus:ring-primary outline-none" />
+           </div>
+         </div>
+         <div className="flex gap-2">
+           <button onClick={onClose} className="flex-1 py-3 text-text-sub font-bold text-xs hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-xl transition-all">Cancelar</button>
+           <button onClick={() => { onChange(`${date}T${time || '00:00'}`); onClose(); }} className="flex-1 py-3 bg-primary text-white font-black text-xs uppercase rounded-xl hover:scale-105 transition-all shadow-md shadow-primary/20">Okay, Confirmar</button>
+         </div>
+       </div>
+    </div>
+  );
+};
+
 export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClient, onUpdateClient, onDeleteClient, error }) => {
   const allTeamMembers = Array.from(new Map([...team, { name: user.name, avatar: user.avatar }].map(m => [m.name, m])).values());
   const { confirm } = useConfirm();
@@ -135,6 +163,7 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
   const [newFollowUpNextDate, setNewFollowUpNextDate] = useState('');
   const [newFollowUpAdvances, setNewFollowUpAdvances] = useState(false);
   const [savingFollowUp, setSavingFollowUp] = useState(false);
+  const [showPickerFor, setShowPickerFor] = useState<'newLead' | 'followUp' | null>(null);
 
   const [editingFollowUpId, setEditingFollowUpId] = useState<string | null>(null);
   const [editFollowUpNotes, setEditFollowUpNotes] = useState('');
@@ -963,7 +992,14 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
 
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-text-sub uppercase">Primeiro Follow-Up (Opcional)</label>
-                <input type="datetime-local" className="bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none" value={formData.nextFollowUpDate} onChange={e => setFormData({ ...formData, nextFollowUpDate: e.target.value })} />
+                <button type="button" onClick={() => setShowPickerFor('newLead')}
+                  className="w-full text-left bg-gray-50 dark:bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none text-text-main hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-base">calendar_month</span>
+                  {formData.nextFollowUpDate
+                    ? `${formData.nextFollowUpDate.split('T')[0]} às ${formData.nextFollowUpDate.split('T')[1]?.substring(0,5) || '00:00'}`
+                    : <span className="text-text-sub">Seleccionar data e hora...</span>
+                  }
+                </button>
               </div>
             </div>
 
@@ -1217,12 +1253,17 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[9px] font-bold text-text-sub uppercase">Próximo Contacto</label>
-                    <input
-                      type="datetime-local"
-                      className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-750 rounded-xl p-2 text-xs outline-none"
-                      value={newFollowUpNextDate}
-                      onChange={e => setNewFollowUpNextDate(e.target.value)}
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPickerFor('followUp')}
+                      className="w-full text-left bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl p-2 text-xs outline-none text-text-main hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-primary text-sm">calendar_month</span>
+                      {newFollowUpNextDate
+                        ? `${newFollowUpNextDate.split('T')[0]} às ${newFollowUpNextDate.split('T')[1]?.substring(0,5) || '00:00'}`
+                        : <span className="text-text-sub">Seleccionar...</span>
+                      }
+                    </button>
                   </div>
                 </div>
 
@@ -1313,6 +1354,18 @@ export const Clients: React.FC<ClientsProps> = ({ user, team, clients, onAddClie
         </div>
         );
       })()}
+
+      {/* Date/Time Picker Modal */}
+      {showPickerFor && (
+        <DateTimePickerModal
+          value={showPickerFor === 'newLead' ? formData.nextFollowUpDate : newFollowUpNextDate}
+          onChange={(val) => {
+            if (showPickerFor === 'newLead') setFormData({ ...formData, nextFollowUpDate: val });
+            else setNewFollowUpNextDate(val);
+          }}
+          onClose={() => setShowPickerFor(null)}
+        />
+      )}
     </div>
   );
 };

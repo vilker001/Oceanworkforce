@@ -247,7 +247,7 @@ export const Ranking: React.FC<RankingProps> = ({ currentUser }) => {
                 </div>
                 <div className="h-3 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all duration-500 ${currentGoal.achieved ? 'bg-green-500' : 'bg-primary'}`} 
-                    style={{ width: `${Math.min(100, (collectiveMonthlyXp / currentGoal.target_xp) * 100)}%` }} />
+                    style={{ width: `${Math.max(0, Math.min(100, (collectiveMonthlyXp / currentGoal.target_xp) * 100))}%` }} />
                 </div>
                 <p className="text-[10px] text-text-sub mt-1.5 font-bold uppercase tracking-wider">
                   {currentGoal.achieved ? '✓ Meta Concluída e Celebrada!' : `${Math.max(0, currentGoal.target_xp - collectiveMonthlyXp).toLocaleString('pt-MZ')} XP em falta`}

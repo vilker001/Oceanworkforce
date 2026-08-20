@@ -166,7 +166,7 @@ export const TeamPerformance: React.FC<TeamPerformanceProps> = ({ currentUser, t
           ];
 
           // Calculate XP progress (simple logic: 1000 XP per level)
-          const xpProgress = (member.xp % 1000) / 10;
+          const xpProgress = Math.max(0, (member.xp % 1000) / 10);
 
           return (
             <div key={member.id} className="bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all group overflow-hidden flex flex-col relative">
